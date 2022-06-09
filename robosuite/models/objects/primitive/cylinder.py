@@ -18,7 +18,7 @@ class CylinderObject(PrimitiveObject):
         size=None,
         size_max=None,
         size_min=None,
-        density=None,
+        density=500,
         friction=None,
         rgba=None,
         solref=None,
@@ -36,7 +36,7 @@ class CylinderObject(PrimitiveObject):
         if solref is None:
             solref = [0.01, 0.5]
         if joints == "default":
-            joints = [{"type": "free", "damping": "0.0001"}]
+            joints = [{"type": "free", "damping": "0.001"}]
 
         super().__init__(
             name=name,

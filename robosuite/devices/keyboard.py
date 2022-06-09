@@ -21,7 +21,7 @@ class Keyboard(Device):
     def __init__(self, pos_sensitivity=1.0, rot_sensitivity=1.0):
 
         self._display_controls()
-        self._reset_internal_state()
+        self._reset_internal_state(np.zeros(3))
 
         self._reset_state = 0
         self._enabled = False
@@ -52,23 +52,25 @@ class Keyboard(Device):
         print_command("ESC", "quit")
         print("")
 
-    def _reset_internal_state(self):
+    def _reset_internal_state(self, init_pos):
         """
         Resets internal state of controller, except for the reset signal.
         """
         self.rotation = np.array([[-1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, -1.0]])
         self.raw_drotation = np.zeros(3)  # immediate roll, pitch, yaw delta values from keyboard hits
         self.last_drotation = np.zeros(3)
-        self.pos = np.zeros(3)  # (x, y, z)
+        self.dq = np.zeros(9)  # Gripper DOFs
+        self.pos = init_pos  # (x, y, z)
         self.last_pos = np.zeros(3)
         self.grasp = False
+        self.shift_on = False
 
-    def start_control(self):
+    def start_control(self, init_pos=np.zeros(3)):
         """
         Method that should be called externally before controller can
         start receiving commands.
         """
-        self._reset_internal_state()
+        self._reset_internal_state(init_pos)
         self._reset_state = 0
         self._enabled = True
 
@@ -91,6 +93,7 @@ class Keyboard(Device):
             rotation=self.rotation,
             raw_drotation=raw_drotation,
             grasp=int(self.grasp),
+            dq = self.dq,
             reset=self._reset_state,
         )
 
@@ -145,6 +148,26 @@ class Keyboard(Device):
             drot = rotation_matrix(angle=-0.1 * self.rot_sensitivity, direction=[0.0, 0.0, 1.0])[:3, :3]
             self.rotation = self.rotation.dot(drot)  # rotates z
             self.raw_drotation[2] -= 0.1 * self.rot_sensitivity
+        elif key == glfw.KEY_3 and self.shift_on:
+            self.dq[key - glfw.KEY_1] += 0.01 * self.rot_sensitivity
+            self.dq[key - glfw.KEY_1 + 2] -= 0.01 * self.rot_sensitivity
+        elif key == glfw.KEY_3:
+            self.dq[key - glfw.KEY_1] -= 0.01 * self.rot_sensitivity
+            self.dq[key - glfw.KEY_1 + 2] += 0.01 * self.rot_sensitivity
+        elif key == glfw.KEY_4 and self.shift_on:
+            self.dq[key - glfw.KEY_1] += 0.01 * self.rot_sensitivity
+            self.dq[key - glfw.KEY_1 + 2] -= 0.01 * self.rot_sensitivity
+        elif key == glfw.KEY_4:
+            self.dq[key - glfw.KEY_1] -= 0.01 * self.rot_sensitivity
+            self.dq[key - glfw.KEY_1 + 2] += 0.01 * self.rot_sensitivity
+        elif key <= glfw.KEY_9 and key >= glfw.KEY_1 and self.shift_on:
+            self.dq[key-glfw.KEY_1] += 0.01*self.rot_sensitivity
+        elif key <= glfw.KEY_9 and key >= glfw.KEY_1:
+            self.dq[key-glfw.KEY_1] -= 0.01*self.rot_sensitivity
+
+        if key == glfw.KEY_LEFT_SHIFT or key == glfw.KEY_RIGHT_SHIFT:
+            self.shift_on = True
+
 
     def on_release(self, window, key, scancode, action, mods):
         """
@@ -166,4 +189,23 @@ class Keyboard(Device):
         elif key == glfw.KEY_Q:
             self._reset_state = 1
             self._enabled = False
-            self._reset_internal_state()
+            self._reset_internal_state(np.zeros(3))
+
+        elif key == glfw.KEY_LEFT_SHIFT or key == glfw.KEY_RIGHT_SHIFT:
+            self.shift_on = False
+
+    def on_pressed(self, window, key, scancode, action, mods):
+        """
+        Key handler for key releases.
+
+        Args:
+            window: [NOT USED]
+            key (int): keycode corresponding to the key that was pressed
+            scancode: [NOT USED]
+            action: [NOT USED]
+            mods: [NOT USED]
+        """
+
+        # controls for grasping
+        if key == glfw.KEY_LEFT_SHIFT or key == glfw.KEY_RIGHT_SHIFT:
+            self.shift_on = True

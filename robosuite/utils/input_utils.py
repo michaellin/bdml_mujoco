@@ -182,11 +182,12 @@ def input2action(device, robot, active_arm="right", env_configuration=None):
     # Note: Devices output rotation with x and z flipped to account for robots starting with gripper facing down
     #       Also note that the outputted rotation is an absolute rotation, while outputted dpos is delta pos
     #       Raw delta rotations from neutral user input is captured in raw_drotation (roll, pitch, yaw)
-    dpos, rotation, raw_drotation, grasp, reset = (
+    dpos, rotation, raw_drotation, grasp, dq, reset = (
         state["dpos"],
         state["rotation"],
         state["raw_drotation"],
         state["grasp"],
+        state["dq"],
         state["reset"],
     )
 
@@ -243,13 +244,13 @@ def input2action(device, robot, active_arm="right", env_configuration=None):
         print("Error: Unsupported controller specified -- Robot must have either an IK or OSC-based controller!")
 
     # map 0 to -1 (open) and map 1 to 1 (closed)
-    grasp = 1 if grasp else -1
+    #grasp = 1 if grasp else -1 # TODO Michael commented out
 
     # Create action based on action space of individual robot
     if controller.name == "OSC_POSITION":
         action = np.concatenate([dpos, [grasp] * gripper_dof])
     else:
-        action = np.concatenate([dpos, drotation, [grasp] * gripper_dof])
+        action = np.concatenate([dpos, drotation, dq])
 
     # Return the action and grasp
     return action, grasp

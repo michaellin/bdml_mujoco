@@ -298,11 +298,11 @@ class Lift(SingleArmEnv):
 
         self.cubes = [BoxObject(
             name=f"cube{x}",
-            size_min=[0.020, 0.020, 0.080],  # [0.015, 0.015, 0.015],
-            size_max=[0.022, 0.022, 0.082],  # [0.018, 0.018, 0.018])
+            size_min=[0.035, 0.035, 0.050],  # [0.015, 0.015, 0.015],
+            size_max=[0.035, 0.035, 0.052],  # [0.018, 0.018, 0.018])
             rgba=[1, 0, 0, 1],
             material=redwood,
-        ) for x in range(10)]
+        ) for x in range(4)]
 
         greenwood = CustomMaterial(
             texture="WoodGreen",
@@ -314,21 +314,21 @@ class Lift(SingleArmEnv):
 
         self.cylinders = [CylinderObject(
             name=f"cylinder{x}",
-            size=[0.020, 0.080],
+            size=[0.035, 0.050],
             rgba=[0, 1, 0, 1],
             material=redwood,
-        ) for x in range(10)]
+        ) for x in range(4)]
 
         # Create placement initializer for cube
         if self.placement_initializer is not None:
             self.placement_initializer.reset()
-            self.placement_initializer.add_objects(self.cubes[:4] + self.cylinders[:4])
+            self.placement_initializer.add_objects(self.cubes[:2] + self.cylinders[:2])
         else:
             self.placement_initializer = UniformRandomSampler(
                 name="ObjectSampler",
-                mujoco_objects=self.cubes[:4] + self.cylinders[:4],
+                mujoco_objects=self.cubes[:2] + self.cylinders[:2],
                 x_range=[0.0, 0.35],
-                y_range=[0.08, 0.17],
+                y_range=[0.00, 0.2],
                 rotation=None,
                 ensure_object_boundary_in_range=False,
                 ensure_valid_placement=True,
@@ -339,13 +339,13 @@ class Lift(SingleArmEnv):
         # Create placement initializer for cube
         if self.placement_initializer2 is not None:
             self.placement_initializer2.reset()
-            self.placement_initializer2.add_objects(self.cubes[4:] + self.cylinders[4:])
+            self.placement_initializer2.add_objects(self.cubes[2:] + self.cylinders[2:])
         else:
             self.placement_initializer2 = UniformRandomSampler(
                 name="ObjectSampler",
-                mujoco_objects=self.cubes[4:] + self.cylinders[3:],
+                mujoco_objects=self.cubes[2:] + self.cylinders[2:],
                 x_range=[0.0, 0.35],
-                y_range=[-0.17, -0.08],
+                y_range=[-0.2, -0.00],
                 rotation=None,
                 ensure_object_boundary_in_range=False,
                 ensure_valid_placement=True,

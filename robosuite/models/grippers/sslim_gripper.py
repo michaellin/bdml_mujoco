@@ -1,5 +1,9 @@
 """
+<<<<<<< HEAD
 6-DoF gripper with its open/close variant
+=======
+SSLIM Gripper
+>>>>>>> task/cabinet_arena
 """
 import numpy as np
 
@@ -23,16 +27,13 @@ class SSLIM(GripperModel):
 
     @property
     def init_qpos(self):
-        return np.array([0,0,0,0,0,0,0,0,0])
+        return np.zeros(9)
 
     @property
     def _important_geoms(self):
         return {
-            "left_finger": [
-            ],
-            "right_finger": [
-            ],
+            "left_finger": [],
+            "right_finger": [],
             "left_fingerpad": [],
             "right_fingerpad": [],
         }
-

@@ -111,13 +111,13 @@ class Keyboard(Device):
 
         # controls for moving position
         if key == glfw.KEY_W:
-            self.pos[0] -= self._pos_step * self.pos_sensitivity  # dec x
+            self.pos[0] += self._pos_step * self.pos_sensitivity  # dec x
         elif key == glfw.KEY_S:
-            self.pos[0] += self._pos_step * self.pos_sensitivity  # inc x
+            self.pos[0] -= self._pos_step * self.pos_sensitivity  # inc x
         elif key == glfw.KEY_A:
-            self.pos[1] -= self._pos_step * self.pos_sensitivity  # dec y
+            self.pos[1] += self._pos_step * self.pos_sensitivity  # dec y
         elif key == glfw.KEY_D:
-            self.pos[1] += self._pos_step * self.pos_sensitivity  # inc y
+            self.pos[1] -= self._pos_step * self.pos_sensitivity  # inc y
         elif key == glfw.KEY_F:
             self.pos[2] -= self._pos_step * self.pos_sensitivity  # dec z
         elif key == glfw.KEY_R:

@@ -103,6 +103,10 @@ from robosuite import load_controller_config
 from robosuite.utils.input_utils import input2action
 from robosuite.wrappers import VisualizationWrapper
 
+import mujoco_py
+import glfw
+
+
 
 if __name__ == "__main__":
 
@@ -177,9 +181,10 @@ if __name__ == "__main__":
         from robosuite.devices import SpaceMouse
 
         device = SpaceMouse(pos_sensitivity=args.pos_sensitivity, rot_sensitivity=args.rot_sensitivity)
+        env.viewer.add_keypress_callback("any", device.on_press)
+        env.viewer.add_keyrepeat_callback("any", device.on_press)
     else:
         raise Exception("Invalid device choice: choose either 'keyboard' or 'spacemouse'.")
-    
 
     while True:
         # Reset the environment
@@ -195,6 +200,7 @@ if __name__ == "__main__":
 
         # Initialize device control
         device.start_control()
+
 
         while True:
             # Set active robot

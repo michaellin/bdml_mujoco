@@ -20,8 +20,6 @@ For Linux support, you can find open-source Linux drivers and SDKs online.
 
 """
 
-
-import threading
 import time
 from collections import namedtuple
 
@@ -29,16 +27,7 @@ from collections import namedtuple
 import numpy as np
 import rospy
 from sensor_msgs.msg import Joy
-
-
-try:
-   import hid
-except ModuleNotFoundError as exc:
-   raise ImportError(
-       "Unable to load module hid, required to interface with SpaceMouse. "
-       "Only macOS is officially supported. Install the additional "
-       "requirements with `pip install -r requirements-extra.txt`"
-   ) from exc
+import glfw
 
 
 from robosuite.devices import Device
@@ -156,6 +145,8 @@ class SpaceMouse(Device):
        self.roll, self.pitch, self.yaw = 0, 0, 0
 
        self.dq = np.zeros(7)
+       self.thumb_pos = 1.0
+       self.pinch = False
 
 
        self._display_controls()
@@ -219,7 +210,7 @@ class SpaceMouse(Device):
        self.z = self._axes[2] 
        self.roll = self._axes[3]
        self.pitch = self._axes[4] * -1
-       self.yaw = self._axes[5]
+       self.yaw = self._axes[5] * -1
        self._control = [
             self.x,
             self.y,
@@ -228,6 +219,36 @@ class SpaceMouse(Device):
             self.pitch,
             self.yaw,
         ]
+
+   def on_press(self, window, key, scancode, action, mods):
+        """
+        Key handler for key presses.
+
+        Args:
+            window: [NOT USED]
+            key (int): keycode corresponding to the key that was pressed
+            scancode: [NOT USED]
+            action: [NOT USED]
+            mods: [NOT USED]
+        """
+        # controls for moving thumb
+        if key == glfw.KEY_Q:
+            self.thumb_pos = 1
+        elif key == glfw.KEY_W:
+            self.thumb_pos = -0.5
+        elif key == glfw.KEY_A:
+            self.pinch = True
+
+            self.dq[1] = 0
+            self.dq[3] = 0
+            self.dq[6] = 0
+
+        elif key == glfw.KEY_S:
+            self.pinch = False
+
+            self.dq[1] = self.dq[0] * (self.alpha2/self.alpha)
+            self.dq[3] = self.dq[2] * (self.alpha2/self.alpha)
+            self.dq[6] = self.dq[5] * (self.alpha2/self.alpha)
 
 
    def start_control(self):
@@ -260,36 +281,34 @@ class SpaceMouse(Device):
 
        self.rotation = self.rotation.dot(drot1.dot(drot2.dot(drot3)))
        
-       alpha = 0.05
-       alpha2 = 0.03
+       self.alpha = 0.05
+       self.alpha2 = 0.03
        if self._buttons[0]:
            
             if self.dq[0] <= 1.5:
-                self.dq[0] += alpha * self.pos_sensitivity
-                self.dq[2] += alpha * self.pos_sensitivity
-                self.dq[5] += alpha * self.pos_sensitivity
+                self.dq[0] += self.alpha * self.pos_sensitivity
+                self.dq[2] += self.alpha * self.pos_sensitivity
+                self.dq[5] += self.alpha * self.pos_sensitivity
 
-            # if self.dq[1] <= 1:
-                self.dq[1] += alpha2 * self.pos_sensitivity
-                self.dq[3] += alpha2 * self.pos_sensitivity
-                self.dq[6] += alpha2 * self.pos_sensitivity
-                # self.dq[0:5] += alpha * self.pos_sensitivity
-                # self.dq[5:]  += alpha * self.pos_sensitivity
+                if not self.pinch:
+                    self.dq[1] += self.alpha2 * self.pos_sensitivity
+                    self.dq[3] += self.alpha2 * self.pos_sensitivity
+                    self.dq[6] += self.alpha2 * self.pos_sensitivity
 
        if self._buttons[1]:
            if self.dq[0] >= -1.5:
-                self.dq[0] -= alpha * self.pos_sensitivity
-                self.dq[2] -= alpha * self.pos_sensitivity
-                self.dq[5] -= alpha * self.pos_sensitivity
-        #    if self.dq[1] >= -1:
-                self.dq[1] -= alpha2 * self.pos_sensitivity
-                self.dq[3] -= alpha2 * self.pos_sensitivity
-                self.dq[6] -= alpha2 * self.pos_sensitivity
-            # self.dq[0:5] -=  alpha * self.pos_sensitivity
-            # self.dq[5:]  -=  alpha * self.pos_sensitivity
+                self.dq[0] -= self.alpha * self.pos_sensitivity
+                self.dq[2] -= self.alpha * self.pos_sensitivity
+                self.dq[5] -= self.alpha * self.pos_sensitivity
+
+                if not self.pinch:
+
+                    self.dq[1] -= self.alpha2 * self.pos_sensitivity
+                    self.dq[3] -= self.alpha2 * self.pos_sensitivity
+                    self.dq[6] -= self.alpha2 * self.pos_sensitivity
 
         
-       self.dq[4] = 1
+       self.dq[4] = self.thumb_pos
        
        return dict(
            dpos=dpos,

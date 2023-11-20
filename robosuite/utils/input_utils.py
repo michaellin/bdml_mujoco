@@ -190,6 +190,7 @@ def input2action(device, robot, active_arm="right", env_configuration=None):
         state["dq"],
         state["reset"],
     )
+    
 
     # If we're resetting, immediately return None
     if reset:

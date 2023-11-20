@@ -103,11 +103,12 @@ from robosuite import load_controller_config
 from robosuite.utils.input_utils import input2action
 from robosuite.wrappers import VisualizationWrapper
 
+
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--environment", type=str, default="Lift")
-    parser.add_argument("--robots", nargs="+", type=str, default="Panda", help="Which robot(s) to use in the env")
+    parser.add_argument("--robots", nargs="+", type=str, default="PandaWrist", help="Which robot(s) to use in the env")
     parser.add_argument(
         "--config", type=str, default="single-arm-opposed", help="Specified environment configuration if necessary"
     )
@@ -115,7 +116,7 @@ if __name__ == "__main__":
     parser.add_argument("--switch-on-grasp", action="store_true", help="Switch gripper control on gripper action")
     parser.add_argument("--toggle-camera-on-grasp", action="store_true", help="Switch camera angle on gripper action")
     parser.add_argument("--controller", type=str, default="osc", help="Choice of controller. Can be 'ik' or 'osc'")
-    parser.add_argument("--device", type=str, default="keyboard")
+    parser.add_argument("--device", type=str, default="spacemouse")
     parser.add_argument("--pos-sensitivity", type=float, default=1.0, help="How much to scale position user inputs")
     parser.add_argument("--rot-sensitivity", type=float, default=1.0, help="How much to scale rotation user inputs")
     args = parser.parse_args()
@@ -178,6 +179,7 @@ if __name__ == "__main__":
         device = SpaceMouse(pos_sensitivity=args.pos_sensitivity, rot_sensitivity=args.rot_sensitivity)
     else:
         raise Exception("Invalid device choice: choose either 'keyboard' or 'spacemouse'.")
+    
 
     while True:
         # Reset the environment
@@ -215,6 +217,7 @@ if __name__ == "__main__":
                 if args.toggle_camera_on_grasp:
                     cam_id = (cam_id + 1) % num_cam
                     env.viewer.set_camera(camera_id=cam_id)
+                    
             # Update last grasp
             last_grasp = grasp
 
@@ -240,4 +243,5 @@ if __name__ == "__main__":
 
             # Step through the simulation and render
             obs, reward, done, info = env.step(action)
+            
             env.render()

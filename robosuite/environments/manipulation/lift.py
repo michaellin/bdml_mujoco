@@ -250,8 +250,8 @@ class Lift(SingleArmEnv):
             reward += reaching_reward
 
             # grasping reward
-            if self._check_grasp(gripper=self.robots[0].gripper, object_geoms=self.cube):
-                reward += 0.25
+            # if self._check_grasp(gripper=self.robots[0].gripper, object_geoms=self.cube):
+            #     reward += 0.25
 
         # Scale reward if requested
         if self.reward_scale is not None:
@@ -298,8 +298,8 @@ class Lift(SingleArmEnv):
 
         self.cubes = [BoxObject(
             name=f"cube{x}",
-            size_min=[0.035, 0.035, 0.050],  # [0.015, 0.015, 0.015],
-            size_max=[0.035, 0.035, 0.052],  # [0.018, 0.018, 0.018])
+            size_min=[0.035, 0.035, 0.070],  # [0.015, 0.015, 0.015],
+            size_max=[0.035, 0.035, 0.072],  # [0.018, 0.018, 0.018])
             rgba=[1, 0, 0, 1],
             material=redwood,
         ) for x in range(4)]
@@ -314,7 +314,7 @@ class Lift(SingleArmEnv):
 
         self.cylinders = [CylinderObject(
             name=f"cylinder{x}",
-            size=[0.035, 0.050],
+            size=[0.035, 0.070],
             rgba=[0, 1, 0, 1],
             material=redwood,
         ) for x in range(4)]

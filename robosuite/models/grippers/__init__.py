@@ -15,6 +15,7 @@ from .rr_gripper import RRGripper
 from .reach_gripper import ReachGripper
 from .reach_kinova_gripper import ReachKinovaGripper
 from .sslim_gripper import SSLIM
+from .sslim_hand import SSLIM_Hand
 
 
 GRIPPER_MAPPING = {
@@ -33,6 +34,7 @@ GRIPPER_MAPPING = {
     "ReachGripper": ReachGripper,
     "ReachKinovaGripper": ReachKinovaGripper,
     "SSLIMGripper": SSLIM,
+    "SSLIMHand": SSLIM_Hand,
     None: NullGripper,
 }
 

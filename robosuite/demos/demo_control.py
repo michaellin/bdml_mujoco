@@ -103,7 +103,7 @@ from robosuite import load_controller_config
 from robosuite.utils.input_utils import input2action
 from robosuite.wrappers import VisualizationWrapper
 
-import mujoco_py
+import mujoco_py    
 import glfw
 
 
@@ -111,7 +111,7 @@ import glfw
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--environment", type=str, default="Lift")
+    parser.add_argument("--environment", type=str, default="Train")
     parser.add_argument("--robots", nargs="+", type=str, default="PandaWrist", help="Which robot(s) to use in the env")
     parser.add_argument(
         "--config", type=str, default="single-arm-opposed", help="Specified environment configuration if necessary"
@@ -134,7 +134,7 @@ if __name__ == "__main__":
         print("Error: Unsupported controller specified. Must be either 'ik' or 'osc'!")
         raise ValueError
 
-    # Get controller config
+    # Get controller cronfig
     controller_config = load_controller_config(default_controller=controller_name)
 
     # Create argument configuration
@@ -179,8 +179,8 @@ if __name__ == "__main__":
         env.viewer.add_keyrepeat_callback("any", device.on_press)
     elif args.device == "spacemouse":
         from robosuite.devices import SpaceMouse
-
-        device = SpaceMouse(pos_sensitivity=args.pos_sensitivity, rot_sensitivity=args.rot_sensitivity)
+        use_robotiq = False if "PandaWrist" in args.robots else True
+        device = SpaceMouse(pos_sensitivity=args.pos_sensitivity, rot_sensitivity=args.rot_sensitivity, use_robotiq=use_robotiq)
         env.viewer.add_keypress_callback("any", device.on_press)
         env.viewer.add_keyrepeat_callback("any", device.on_press)
     else:

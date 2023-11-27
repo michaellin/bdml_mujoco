@@ -31,16 +31,30 @@
     <geom pos="3 0 1.5" quat="0.5 0.5 -0.5 -0.5" size="3 1.5 0.01" type="box" conaffinity="0" contype="0" group="1" name="wall_front_visual" material="walls_mat"/>
     <!-- Table body -->
     <body name="table" pos="0 0 0.4">
-      <geom pos="0 0 0" size="0.4 0.4 0.4" type="box" group="0" name="table_collision" friction="1 0.005 0.0001"/>
+      <geom pos="0 0 0" size="0.4 0.4 0.4" type="box" group="0" name="table_collision" friction="0.1 0.005 0.0001"/>
       <geom pos="0 0 0" size="0.4 0.4 0.4" type="box" conaffinity="0" contype="0" group="1" name="table_visual" material="table_ceramic"/>
-      <geom pos="0 0.26 0.08" size="0.25 0.01 0.35" type="box" group="0" name="cabinet_collision" friction="1 0.005 0.0001"/>
+
+      <!-- <geom pos="0 0.26 0.08" size="0.25 0.01 0.35" type="box" group="0" name="cabinet_collision" friction="1 0.005 0.0001"/>
       <geom pos="0 -0.26 0.08" size="0.25 0.01 0.08" type="box" group="0" name="cabinet_collision1" friction="1 0.005 0.0001"/>
       <geom pos="0 0 0.7" size="0.25 0.25 0.01" type="box" group="0" name="cabinet_collision2" friction="1 0.005 0.0001"/>
-      <geom pos="0.25 0 0.08" size="0.01 0.25 0.08" type="box" group="0" name="cabinet_collision3" friction="1 0.005 0.0001"/>
-      <geom pos="0 0.26 0.08" size="0.25 0.01 0.08" type="box" conaffinity="0" contype="0" group="1" name="cabinet_visual" material="table_ceramic"/>
-      <geom pos="0 -0.26 0.08" size="0.25 0.01 0.08" type="box" conaffinity="0" contype="0" group="1" name="cabinet_visual1" material="table_ceramic"/>
-      <geom pos="0 0 0.16" size="0.25 0.25 0.01" type="box" conaffinity="0" contype="0" group="1" name="cabinet_visual2" rgba="0 0.05 0.3 0.2"/>
-      <geom pos="0.25 0 0.08" size="0.01 0.25 0.08" type="box" conaffinity="0" contype="0" group="1" name="cabinet_visual3" material="table_ceramic"/>
+      <geom pos="0.25 0 0.08" size="0.01 0.25 0.08" type="box" group="0" name="cabinet_collision3" friction="1 0.005 0.0001"/> -->
+
+      <!-- Cabinet Sides (visual only) -->
+      <geom pos="0.0 0.26 0.16" size="0.2 0.01 0.14" type="box" conaffinity="0" contype="0" group="1" name="cabinet_visual" material="table_ceramic"/>
+      <geom pos="0.0 -0.26 0.16" size="0.2 0.01 0.14" type="box" conaffinity="0" contype="0" group="1" name="cabinet_visual1" material="table_ceramic"/>
+      <!-- Cabinet Top (visual only) -->
+      <geom pos="0 0 0.29" size="0.2 0.25 0.01" type="box" conaffinity="0" contype="0" group="1" name="cabinet_visual2" material="table_ceramic"/>
+      <!-- Cabinet Back (visual only) -->
+      <geom pos="0.19 0 0.16" size="0.01 0.25 0.14" type="box" conaffinity="0" contype="0" group="1" name="cabinet_visual3" material="table_ceramic"/> 
+
+       <!-- Cabinet Sides (collision only) -->
+      <geom pos="0.0 0.26 0.16" size="0.2 0.01 0.14" type="box" name="cabinet_collision" friction="0.1 0.005 0.0001"/>
+      <geom pos="0.0 -0.26 0.16" size="0.2 0.01 0.14" type="box" name="cabinet_collision1" friction="0.1 0.005 0.0001"/>
+      <!-- Cabinet Top (collision only) -->
+      <geom pos="0 0 0.29" size="0.2 0.25 0.01" type="box" name="cabinet_collision2" friction="0.1 0.005 0.0001"/>
+      <!-- Cabinet Back (collision only) -->
+      <geom pos="0.19 0 0.16" size="0.01 0.25 0.14" type="box" name="cabinet_collision3" friction="0.1 0.005 0.0001"/> 
+
       <!--<geom pos="0 0.26 0.35" size="0.25 0.01 0.35" type="box" group="0" name="cabinet_collision" friction="1 0.005 0.0001"/>
       <geom pos="0 -0.26 0.35" size="0.25 0.01 0.35" type="box" group="0" name="cabinet_collision1" friction="1 0.005 0.0001"/>
       <geom pos="0 0 0.7" size="0.25 0.25 0.01" type="box" group="0" name="cabinet_collision2" friction="1 0.005 0.0001"/>
@@ -65,14 +79,15 @@
 
     <light name="light1" diffuse=".8 .8 .8" dir="0 -.15 -1" directional="false" pos="1 1 4.0" specular="0.3 0.3 0.3" castshadow="false"/>
     <light name="light2" diffuse=".8 .8 .8" dir="0 -.15 -1" directional="false" pos="-3. -3. 4.0" specular="0.3 0.3 0.3" castshadow="false"/>
+    <light name="undercabinetlights" diffuse=".8 .8 .8" dir="-.2 0 -1" directional="false" pos="0.4 0 1.7" specular="0.3 0.3 0.3" castshadow="true"/>
     <!-- front view -->
     <!--<camera mode="fixed" name="frontview" pos="1.6 0 1.45" quat="0.56 0.43 0.43 0.56"/>-->
     <camera mode="fixed" name="backview" pos="-0.8 -0.3 1.1" quat="0.5 0.5 -0.5 -0.5"/>
     <!-- bird view -->
     <camera mode="fixed" name="birdview" pos="0. -0.4 2.0" quat="0.7071 0 0 -0.7071"/>
     <!-- agent view -->
-    <!--<camera mode="fixed" name="agentview" pos="0.5 0 1.35" quat="0.653 0.271 0.271 0.653"/>-->
+    <camera mode="fixed" name="agentview" pos="0.5 0 1.35" quat="0.653 0.271 0.271 0.653"/>
     <!-- side view -->
-    <camera mode="fixed" name="sideview" pos="-0.05651774593317116 1.2761224129427358 1.4879572214102434" quat="0.009905065491771751 0.006877963156909582 0.5912228352893879 0.806418094001364" />
+    <camera mode="fixed" name="sideview" pos="-0.05651774593317116 1.2761224129427358 2" quat="0.009905065491771751 0.006877963156909582 0.5912228352893879 0.806418094001364" />
   </worldbody>
 </mujoco>

@@ -38,180 +38,170 @@ AxisSpec = namedtuple("AxisSpec", ["channel", "byte1", "byte2", "scale"])
 
 
 SPACE_MOUSE_SPEC = {
-   "x": AxisSpec(channel=1, byte1=1, byte2=2, scale=1),
-   "y": AxisSpec(channel=1, byte1=3, byte2=4, scale=-1),
-   "z": AxisSpec(channel=1, byte1=5, byte2=6, scale=-1),
-   "roll": AxisSpec(channel=1, byte1=7, byte2=8, scale=-1),
-   "pitch": AxisSpec(channel=1, byte1=9, byte2=10, scale=-1),
-   "yaw": AxisSpec(channel=1, byte1=11, byte2=12, scale=1),
+    "x": AxisSpec(channel=1, byte1=1, byte2=2, scale=1),
+    "y": AxisSpec(channel=1, byte1=3, byte2=4, scale=-1),
+    "z": AxisSpec(channel=1, byte1=5, byte2=6, scale=-1),
+    "roll": AxisSpec(channel=1, byte1=7, byte2=8, scale=-1),
+    "pitch": AxisSpec(channel=1, byte1=9, byte2=10, scale=-1),
+    "yaw": AxisSpec(channel=1, byte1=11, byte2=12, scale=1),
 }
 
 
-
-
 def to_int16(y1, y2):
-   """
-   Convert two 8 bit bytes to a signed 16 bit integer.
+    """
+    Convert two 8 bit bytes to a signed 16 bit integer.
 
 
-   Args:
-       y1 (int): 8-bit byte
-       y2 (int): 8-bit byte
+    Args:
+        y1 (int): 8-bit byte
+        y2 (int): 8-bit byte
 
 
-   Returns:
-       int: 16-bit integer
-   """
-   x = (y1) | (y2 << 8)
-   if x >= 32768:
-       x = -(65536 - x)
-   return x
-
-
+    Returns:
+        int: 16-bit integer
+    """
+    x = (y1) | (y2 << 8)
+    if x >= 32768:
+        x = -(65536 - x)
+    return x
 
 
 def scale_to_control(x, axis_scale=350.0, min_v=-1.0, max_v=1.0):
-   """
-   Normalize raw HID readings to target range.
+    """
+    Normalize raw HID readings to target range.
 
 
-   Args:
-       x (int): Raw reading from HID
-       axis_scale (float): (Inverted) scaling factor for mapping raw input value
-       min_v (float): Minimum limit after scaling
-       max_v (float): Maximum limit after scaling
+    Args:
+        x (int): Raw reading from HID
+        axis_scale (float): (Inverted) scaling factor for mapping raw input value
+        min_v (float): Minimum limit after scaling
+        max_v (float): Maximum limit after scaling
 
 
-   Returns:
-       float: Clipped, scaled input from HID
-   """
-   x = x / axis_scale
-   x = min(max(x, min_v), max_v)
-   return x
-
-
+    Returns:
+        float: Clipped, scaled input from HID
+    """
+    x = x / axis_scale
+    x = min(max(x, min_v), max_v)
+    return x
 
 
 def convert(b1, b2):
-   """
-   Converts SpaceMouse message to commands.
+    """
+    Converts SpaceMouse message to commands.
 
 
-   Args:
-       b1 (int): 8-bit byte
-       b2 (int): 8-bit byte
+    Args:
+        b1 (int): 8-bit byte
+        b2 (int): 8-bit byte
 
 
-   Returns:
-       float: Scaled value from Spacemouse message
-   """
-   return scale_to_control(to_int16(b1, b2))
-
-
+    Returns:
+        float: Scaled value from Spacemouse message
+    """
+    return scale_to_control(to_int16(b1, b2))
 
 
 class SpaceMouse(Device):
-   """
-   A minimalistic driver class for SpaceMouse with HID library.
+    """
+    A minimalistic driver class for SpaceMouse with HID library.
 
 
-   Note: Use hid.enumerate() to view all USB human interface devices (HID).
-   Make sure SpaceMouse is detected before running the script.
-   You can look up its vendor/product id from this method.
+    Note: Use hid.enumerate() to view all USB human interface devices (HID).
+    Make sure SpaceMouse is detected before running the script.
+    You can look up its vendor/product id from this method.
 
 
-   Args:
-       vendor_id (int): HID device vendor id
-       product_id (int): HID device product id
-       pos_sensitivity (float): Magnitude of input position command scaling
-       rot_sensitivity (float): Magnitude of scale input rotation commands scaling
-   """
+    Args:
+        vendor_id (int): HID device vendor id
+        product_id (int): HID device product id
+        pos_sensitivity (float): Magnitude of input position command scaling
+        rot_sensitivity (float): Magnitude of scale input rotation commands scaling
+    """
 
+    def __init__(self, vendor_id=9583, product_id=50735, pos_sensitivity=1.0, rot_sensitivity=1.0, use_robotiq=False):
+        print("Opening SpaceMouse device")
+        rospy.init_node("spacemouse_listener", anonymous=True)
+        rospy.Subscriber("spacenav/joy", Joy, self._get_spacemouse_commands)
 
-   def __init__(self, vendor_id=9583, product_id=50735, pos_sensitivity=1.0, rot_sensitivity=1.0):
+        # turn this value to true if using Robotiq gripper, false if using SSLIM
+        self.use_robotiq = use_robotiq
 
+        self.pos_sensitivity = pos_sensitivity
+        self.rot_sensitivity = rot_sensitivity
 
-       print("Opening SpaceMouse device")
-       rospy.init_node('spacemouse_listener', anonymous=True)
-       rospy.Subscriber("spacenav/joy", Joy, self._get_spacemouse_commands)
+        # 6-DOF variables
+        self.x, self.y, self.z = 0, 0, 0
+        self.roll, self.pitch, self.yaw = 0, 0, 0
 
+        if self.use_robotiq:
+            self.dq = [0]
+        else:
+            self.dq = np.zeros(7)
 
-       self.pos_sensitivity = pos_sensitivity
-       self.rot_sensitivity = rot_sensitivity
+        self.thumb_pos = 1.0
+        self.pinch = False
+        self.link_thumb = True
 
+        self._display_controls()
 
-       # 6-DOF variables
-       self.x, self.y, self.z = 0, 0, 0
-       self.roll, self.pitch, self.yaw = 0, 0, 0
+        self.single_click_and_hold = False
 
-       self.dq = np.zeros(7)
-       self.thumb_pos = 1.0
-       self.pinch = False
+        self._control = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        self._reset_state = 0
+        self.rotation = np.array([[-1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, -1.0]])
+        self._enabled = False
+        self._buttons = [0.0, 0.0]
 
+    @staticmethod
+    def _display_controls():
+        """
+        Method to pretty print controls.
+        """
 
-       self._display_controls()
+        def print_command(char, info):
+            char += " " * (30 - len(char))
+            print("{}\t{}".format(char, info))
 
+        print("")
+        print_command("Control", "Command")
+        print_command("Right button", "reset simulation")
+        print_command("Left button (hold)", "close gripper")
+        print_command("Move mouse laterally", "move arm horizontally in x-y plane")
+        print_command("Move mouse vertically", "move arm vertically")
+        print_command("Twist mouse about an axis", "rotate arm about a corresponding axis")
+        print_command("ESC", "quit")
+        print("")
 
-       self.single_click_and_hold = False
+    def _reset_internal_state(self):
+        """
+        Resets internal state of controller, except for the reset signal.
+        """
+        self.rotation = np.array([[-1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, -1.0]])
+        # Reset 6-DOF variables
+        self.x, self.y, self.z = 0, 0, 0
+        self.roll, self.pitch, self.yaw = 0, 0, 0
+        # Reset control
+        self._control = np.zeros(6)
+        # Reset grasp
+        self.single_click_and_hold = False
+        if self.use_robotiq:
+            self.dq = [0]
+        else:
+            self.dq = np.zeros(7)
+            self.dq[4] = 1.0
 
+    def _get_spacemouse_commands(self, data):
+        self._axes = data.axes
+        self._buttons = data.buttons
 
-       self._control = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-       self._reset_state = 0
-       self.rotation = np.array([[-1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, -1.0]])
-       self._enabled = False
-       self._buttons = [0.0, 0.0]
-
-
-
-
-   @staticmethod
-   def _display_controls():
-       """
-       Method to pretty print controls.
-       """
-
-
-       def print_command(char, info):
-           char += " " * (30 - len(char))
-           print("{}\t{}".format(char, info))
-
-
-       print("")
-       print_command("Control", "Command")
-       print_command("Right button", "reset simulation")
-       print_command("Left button (hold)", "close gripper")
-       print_command("Move mouse laterally", "move arm horizontally in x-y plane")
-       print_command("Move mouse vertically", "move arm vertically")
-       print_command("Twist mouse about an axis", "rotate arm about a corresponding axis")
-       print_command("ESC", "quit")
-       print("")
-
-
-   def _reset_internal_state(self):
-       """
-       Resets internal state of controller, except for the reset signal.
-       """
-       self.rotation = np.array([[-1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, -1.0]])
-       # Reset 6-DOF variables
-       self.x, self.y, self.z = 0, 0, 0
-       self.roll, self.pitch, self.yaw = 0, 0, 0
-       # Reset control
-       self._control = np.zeros(6)
-       # Reset grasp
-       self.single_click_and_hold = False
-
-
-   def _get_spacemouse_commands(self, data):
-       self._axes = data.axes
-       self._buttons = data.buttons
-
-       self.y = self._axes[0]
-       self.x = self._axes[1] * -1
-       self.z = self._axes[2] 
-       self.roll = self._axes[3]
-       self.pitch = self._axes[4] * -1
-       self.yaw = self._axes[5] * -1
-       self._control = [
+        self.y = self._axes[0]
+        self.x = self._axes[1] * -1
+        self.z = self._axes[2]
+        self.roll = self._axes[3]
+        self.pitch = self._axes[4] * -1
+        self.yaw = self._axes[5] * -1
+        self._control = [
             self.x,
             self.y,
             self.z,
@@ -220,7 +210,7 @@ class SpaceMouse(Device):
             self.yaw,
         ]
 
-   def on_press(self, window, key, scancode, action, mods):
+    def on_press(self, window, key, scancode, action, mods):
         """
         Key handler for key presses.
 
@@ -235,7 +225,7 @@ class SpaceMouse(Device):
         if key == glfw.KEY_Q:
             self.thumb_pos = 1
         elif key == glfw.KEY_W:
-            self.thumb_pos = -0.5
+            self.thumb_pos = -1
         elif key == glfw.KEY_A:
             self.pinch = True
 
@@ -246,109 +236,128 @@ class SpaceMouse(Device):
         elif key == glfw.KEY_S:
             self.pinch = False
 
-            self.dq[1] = self.dq[0] * (self.alpha2/self.alpha)
-            self.dq[3] = self.dq[2] * (self.alpha2/self.alpha)
-            self.dq[6] = self.dq[5] * (self.alpha2/self.alpha)
+            self.dq[1] = self.dq[0] * (self.alpha2 / self.alpha)
+            self.dq[3] = self.dq[2] * (self.alpha2 / self.alpha)
+            if self.link_thumb:
+                self.dq[6] = self.dq[5] * (self.alpha2 / self.alpha)
+
+        elif key == glfw.KEY_Z:
+            self.link_thumb = False
+            self.dq[5] = 0
+            self.dq[6] = 0
+
+        elif key == glfw.KEY_X:
+            self.link_thumb = True
+            self.dq[5] = self.dq[2]
+            if self.pinch:
+                self.dq[6] = 0
+            else:
+                self.dq[6] = self.dq[5] * (self.alpha2 / self.alpha)
+
+        elif key == glfw.KEY_B:
+            self._reset_state = 1
+            self._enabled = False
+            self._reset_internal_state()
+
+    def start_control(self):
+        """
+        Method that should be called externally before controller can
+        start receiving commands.
+        """
+        self._reset_internal_state()
+        self._reset_state = 0
+        self._enabled = True
+
+    def get_controller_state(self):
+        """
+        Grabs the current state of the 3D mouse.
 
 
-   def start_control(self):
-       """
-       Method that should be called externally before controller can
-       start receiving commands.
-       """
-       self._reset_internal_state()
-       self._reset_state = 0
-       self._enabled = True
+        Returns:
+            dict: A dictionary containing dpos, orn, unmodified orn, grasp, and reset
+        """
+        dpos = self.control[:3] * 0.008 * self.pos_sensitivity
+        roll, pitch, yaw = self.control[3:] * 0.008 * self.rot_sensitivity
+
+        # convert RPY to an absolute orientation
+        drot1 = rotation_matrix(angle=-pitch, direction=[1.0, 0, 0], point=None)[:3, :3]
+        drot2 = rotation_matrix(angle=roll, direction=[0, 1.0, 0], point=None)[:3, :3]
+        drot3 = rotation_matrix(angle=yaw, direction=[0, 0, 1.0], point=None)[:3, :3]
+
+        self.rotation = self.rotation.dot(drot1.dot(drot2.dot(drot3)))
+
+        if self.use_robotiq:
+            if self._buttons[0]:
+                self.dq[0] = min(1, self.dq[0] + 0.1)
+            if self._buttons[1]:
+                self.dq[0] = max(-1, self.dq[0] - 0.1)
+        else:
+            self.alpha = 0.1
+            self.alpha2 = 0.08
+            if self._buttons[0]:
+                if self.dq[0] <= 1.5:
+                    self.dq[0] += self.alpha * self.pos_sensitivity
+                    self.dq[2] += self.alpha * self.pos_sensitivity
+                    if self.link_thumb:
+                        self.dq[5] += self.alpha * self.pos_sensitivity
+
+                    if not self.pinch:
+                        self.dq[1] += self.alpha2 * self.pos_sensitivity
+                        self.dq[3] += self.alpha2 * self.pos_sensitivity
+                        if self.link_thumb:
+                            self.dq[6] += self.alpha2 * self.pos_sensitivity
+
+            if self._buttons[1]:
+                if self.dq[0] >= -1.5:
+                    self.dq[0] -= self.alpha * self.pos_sensitivity
+                    self.dq[2] -= self.alpha * self.pos_sensitivity
+                    if self.link_thumb:
+                        self.dq[5] -= self.alpha * self.pos_sensitivity
+
+                    if not self.pinch:
+                        self.dq[1] -= self.alpha2 * self.pos_sensitivity
+                        self.dq[3] -= self.alpha2 * self.pos_sensitivity
+                        if self.link_thumb:
+                            self.dq[6] -= self.alpha2 * self.pos_sensitivity
+
+            self.dq[4] = self.thumb_pos
+
+        return dict(
+            dpos=dpos,
+            rotation=self.rotation,
+            raw_drotation=np.array([roll, pitch, yaw]),
+            grasp=self.control_gripper,
+            dq=self.dq,
+            reset=self._reset_state,
+        )
+
+    @property
+    def control(self):
+        """
+        Grabs current pose of Spacemouse
 
 
-   def get_controller_state(self):
-       """
-       Grabs the current state of the 3D mouse.
+        Returns:
+            np.array: 6-DoF control value
+        """
+        return np.array(self._control)
+
+    @property
+    def control_gripper(self):
+        """
+        Maps internal states into gripper commands.
 
 
-       Returns:
-           dict: A dictionary containing dpos, orn, unmodified orn, grasp, and reset
-       """
-       dpos = self.control[:3] * 0.005 * self.pos_sensitivity
-       roll, pitch, yaw = self.control[3:] * 0.005 * self.rot_sensitivity
-
-
-       # convert RPY to an absolute orientation
-       drot1 = rotation_matrix(angle=-pitch, direction=[1.0, 0, 0], point=None)[:3, :3]
-       drot2 = rotation_matrix(angle=roll, direction=[0, 1.0, 0], point=None)[:3, :3]
-       drot3 = rotation_matrix(angle=yaw, direction=[0, 0, 1.0], point=None)[:3, :3]
-
-
-       self.rotation = self.rotation.dot(drot1.dot(drot2.dot(drot3)))
-       
-       self.alpha = 0.05
-       self.alpha2 = 0.03
-       if self._buttons[0]:
-           
-            if self.dq[0] <= 1.5:
-                self.dq[0] += self.alpha * self.pos_sensitivity
-                self.dq[2] += self.alpha * self.pos_sensitivity
-                self.dq[5] += self.alpha * self.pos_sensitivity
-
-                if not self.pinch:
-                    self.dq[1] += self.alpha2 * self.pos_sensitivity
-                    self.dq[3] += self.alpha2 * self.pos_sensitivity
-                    self.dq[6] += self.alpha2 * self.pos_sensitivity
-
-       if self._buttons[1]:
-           if self.dq[0] >= -1.5:
-                self.dq[0] -= self.alpha * self.pos_sensitivity
-                self.dq[2] -= self.alpha * self.pos_sensitivity
-                self.dq[5] -= self.alpha * self.pos_sensitivity
-
-                if not self.pinch:
-
-                    self.dq[1] -= self.alpha2 * self.pos_sensitivity
-                    self.dq[3] -= self.alpha2 * self.pos_sensitivity
-                    self.dq[6] -= self.alpha2 * self.pos_sensitivity
-
-        
-       self.dq[4] = self.thumb_pos
-       
-       return dict(
-           dpos=dpos,
-           rotation=self.rotation,
-           raw_drotation=np.array([roll, pitch, yaw]),
-           grasp=self.control_gripper,
-           dq = self.dq,
-           reset=self._reset_state,
-       )
-
-
-
-   @property
-   def control(self):
-       """
-       Grabs current pose of Spacemouse
-
-
-       Returns:
-           np.array: 6-DoF control value
-       """
-       return np.array(self._control)
-
-
-   @property
-   def control_gripper(self):
-       """
-       Maps internal states into gripper commands.
-
-
-       Returns:
-           float: Whether we're using single click and hold or not
-       """
-       if self.single_click_and_hold:
-           return 1.0
-       return 0
+        Returns:
+            float: Whether we're using single click and hold or not
+        """
+        if self.single_click_and_hold:
+            return 1.0
+        return 0
 
 
 if __name__ == "__main__":
-   space_mouse = SpaceMouse()
-   for i in range(100):
-       print(space_mouse.control, space_mouse.control_gripper)
-       time.sleep(0.02)
+    space_mouse = SpaceMouse()
+    for i in range(100):
+        print(space_mouse.control, space_mouse.control_gripper)
+        time.sleep(0.02)

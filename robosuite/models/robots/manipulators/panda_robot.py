@@ -24,7 +24,8 @@ class Panda(ManipulatorModel):
 
     @property
     def default_gripper(self):
-        return "PandaGripper"
+        # return "PandaGripper"
+        return "Robotiq85Gripper"
         # return "SSLIMGripper"
 
     @property
@@ -33,7 +34,8 @@ class Panda(ManipulatorModel):
 
     @property
     def init_qpos(self):
-        return np.array([-2.174,1.160,1.077,-2.003,1.129,2.519,-1.824])
+        return np.array([0, -np.pi / 4.0, 0.00, -np.pi / 2.5 - np.pi / 3.0, 0.00, np.pi - 0.6, np.pi / 4])
+        # return np.array([-2.174,1.160,1.077,-2.003,1.129,2.519,-1.824])
         
         #return np.array([-0.923, 0.734, 0.688, -2.245, 2.693, 2.012, -0.685])
         

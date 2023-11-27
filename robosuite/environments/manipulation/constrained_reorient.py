@@ -12,7 +12,7 @@ from robosuite.utils.placement_samplers import UniformRandomSampler
 from robosuite.utils.transform_utils import convert_quat
 
 
-class Lift(SingleArmEnv):
+class ConstrainedReorient(SingleArmEnv):
     """
     This class corresponds to the lifting task for a single robot arm.
 
@@ -141,7 +141,7 @@ class Lift(SingleArmEnv):
         gripper_types="default",
         initialization_noise="default",
         table_full_size=(0.4, 0.54, 0.05),
-        table_friction=(0.1, 5e-3, 1e-4),
+        table_friction=(1.0, 5e-3, 1e-4),
         use_camera_obs=True,
         use_object_obs=True,
         reward_scale=1.0,
@@ -239,20 +239,6 @@ class Lift(SingleArmEnv):
         if self._check_success():
             reward = 2.25
 
-        # use a shaping reward
-        elif self.reward_shaping:
-
-            # reaching reward
-            cube_pos = self.sim.data.body_xpos[self.cube_body_id]
-            gripper_site_pos = self.sim.data.site_xpos[self.robots[0].eef_site_id]
-            dist = np.linalg.norm(gripper_site_pos - cube_pos)
-            reaching_reward = 1 - np.tanh(10.0 * dist)
-            reward += reaching_reward
-
-            # grasping reward
-            # if self._check_grasp(gripper=self.robots[0].gripper, object_geoms=self.cube):
-            #     reward += 0.25
-
         # Scale reward if requested
         if self.reward_scale is not None:
             reward *= self.reward_scale / 2.25
@@ -270,11 +256,7 @@ class Lift(SingleArmEnv):
         self.robots[0].robot_model.set_base_xpos(xpos)
 
         # load model for table top workspace
-        # mujoco_arena = TableArena(
-        #     table_full_size=self.table_full_size,
-        #     table_friction=self.table_friction,
-        #     table_offset=self.table_offset,
-        # )
+
         mujoco_arena = CabinetArena(
             table_full_size=self.table_full_size,
             table_friction=self.table_friction,
@@ -309,79 +291,61 @@ class Lift(SingleArmEnv):
             mat_attrib=mat_attrib,
         )
 
+        self.place_object = [BoxObject(
+                name=f"box_object",
+                size=[0.07, 0.035, 0.035],
+                rgba=[0, 1, 0, 1],
+                material=greenwood,),]
+        
         self.cubes = [BoxObject(
             name=f"cube{x}",
             size_min=[0.035, 0.035, 0.070],  # [0.015, 0.015, 0.015],
             size_max=[0.035, 0.035, 0.072],  # [0.018, 0.018, 0.018])
             rgba=[1, 0, 0, 1],
             material=redwood,
-        ) for x in range(5)]
+        ) for x in range(2)]
 
-        # self.cubes.append(BoxObject(
-        #     name=f"cube_goal",
-        #     size=[0.035, 0.035, 0.070],
-        #     rgba=[0, 1, 0, 1],
-        #     material=greenwood,
-        # ))
 
         self.cylinders = [CylinderObject(
             name=f"cylinder{x}",
             size=[0.035, 0.070],
             rgba=[1, 0, 0, 1],
             material=redwood,
-        ) for x in range(4)]
+        ) for x in range(2)]
+            
 
-        self.cylinders.append(CylinderObject(
-            name=f"cylingder_goal",
-            size=[0.035, 0.070],
-            rgba=[0, 1, 0, 1],
-            material=greenwood,
-        ))
+        # Create placement initializer for base_object
+        self.placement_initializer = UniformRandomSampler(
+            name="ObjectSampler",
+            mujoco_objects=self.place_object,
+            x_range=[-0.1, 0.1],
+            y_range=[-.2, 0.2],
+            rotation=[0, np.pi/8, np.pi/6, np.pi/4, np.pi/3, np.pi/2, 3*np.pi/4, 5*np.pi/6, 7*np.pi/8, np.pi],
+            rotation_axis='z', # 'z
+            ensure_object_boundary_in_range=False,
+            ensure_valid_placement=True,
+            reference_pos=self.table_offset,
+            z_offset=0.01,
+        )
 
-       
-
-        print(self.cylinders[0].material)
-
-        # Create placement initializer for cube
-        if self.placement_initializer is not None:
-            self.placement_initializer.reset()
-            self.placement_initializer.add_objects(self.cubes[:2] + self.cylinders[:2])
-        else:
-            self.placement_initializer = UniformRandomSampler(
+        self.placement_initializer_2 = UniformRandomSampler(
                 name="ObjectSampler",
-                mujoco_objects=self.cubes[:2] + self.cylinders[:2],
+                mujoco_objects=self.cubes + self.cylinders,
                 x_range=[-0.1, 0.1],
                 y_range=[-.2, 0.2],
-                rotation=None,
+                rotation=[0, np.pi/8, np.pi/6, np.pi/4, np.pi/3, np.pi/2, 3*np.pi/4, 5*np.pi/6, 7*np.pi/8, np.pi],
+                rotation_axis='z',
                 ensure_object_boundary_in_range=False,
                 ensure_valid_placement=True,
                 reference_pos=self.table_offset,
                 z_offset=0.01,
             )
-
-        # Create placement initializer for cube
-        if self.placement_initializer2 is not None:
-            self.placement_initializer2.reset()
-            self.placement_initializer2.add_objects(self.cubes[2:] + self.cylinders[2:])
-        else:
-            self.placement_initializer2 = UniformRandomSampler(
-                name="ObjectSampler",
-                mujoco_objects=self.cubes[2:] + self.cylinders[2:],
-                x_range=[-0.1, 0.1],
-                y_range=[-.2, 0.2],
-                rotation=None,
-                ensure_object_boundary_in_range=False,
-                ensure_valid_placement=True,
-                reference_pos=self.table_offset,
-                z_offset=0.01,
-            )
-
 
         # task includes arena, robot, and objects of interest
         self.model = ManipulationTask(
             mujoco_arena=mujoco_arena,
             mujoco_robots=[robot.robot_model for robot in self.robots],
-            mujoco_objects=self.cubes + self.cylinders,
+            mujoco_objects=self.place_object + self.cubes + self.cylinders,
         )
 
     def _setup_references(self):
@@ -393,8 +357,7 @@ class Lift(SingleArmEnv):
         super()._setup_references()
 
         # Additional object references from this env
-        self.cube_body_id = self.sim.model.body_name2id(self.cubes[0].root_body)
-        self.cylinder_body_id = self.sim.model.body_name2id(self.cylinders[0].root_body)
+        self.cylinder_body_id = self.sim.model.body_name2id(self.place_object[0].root_body)
 
     def _setup_observables(self):
         """
@@ -404,40 +367,6 @@ class Lift(SingleArmEnv):
             OrderedDict: Dictionary mapping observable names to its corresponding Observable object
         """
         observables = super()._setup_observables()
-
-        # low-level object information
-        if self.use_object_obs:
-            # Get robot prefix and define observables modality
-            pf = self.robots[0].robot_model.naming_prefix
-            modality = "object"
-
-            # cube-related observables
-            @sensor(modality=modality)
-            def cube_pos(obs_cache):
-                return np.array(self.sim.data.body_xpos[self.cube_body_id])
-
-            @sensor(modality=modality)
-            def cube_quat(obs_cache):
-                return convert_quat(np.array(self.sim.data.body_xquat[self.cube_body_id]), to="xyzw")
-
-            @sensor(modality=modality)
-            def gripper_to_cube_pos(obs_cache):
-                return (
-                    obs_cache[f"{pf}eef_pos"] - obs_cache["cube_pos"]
-                    if f"{pf}eef_pos" in obs_cache and "cube_pos" in obs_cache
-                    else np.zeros(3)
-                )
-
-            sensors = [cube_pos, cube_quat, gripper_to_cube_pos]
-            names = [s.__name__ for s in sensors]
-
-            # Create observables
-            for name, s in zip(names, sensors):
-                observables[name] = Observable(
-                    name=name,
-                    sensor=s,
-                    sampling_rate=self.control_freq,
-                )
 
         return observables
 
@@ -451,15 +380,17 @@ class Lift(SingleArmEnv):
         if not self.deterministic_reset:
 
             # Sample from the placement initializer for all objects
-            object_placements = self.placement_initializer.sample()
-            object_placements2 = self.placement_initializer2.sample()
+            object_placements_place = self.placement_initializer.sample()
 
             # Loop through all objects and reset their positions
-            for obj_pos, obj_quat, obj in object_placements.values():
+            for obj_pos, obj_quat, obj in object_placements_place.values():
                 self.sim.data.set_joint_qpos(obj.joints[0], np.concatenate([np.array(obj_pos), np.array(obj_quat)]))
 
+             # Sample from the placement initializer for all objects
+            object_placements_place_2 = self.placement_initializer_2.sample()
+
             # Loop through all objects and reset their positions
-            for obj_pos, obj_quat, obj in object_placements2.values():
+            for obj_pos, obj_quat, obj in object_placements_place_2.values():
                 self.sim.data.set_joint_qpos(obj.joints[0], np.concatenate([np.array(obj_pos), np.array(obj_quat)]))
 
     def visualize(self, vis_settings):
@@ -472,11 +403,8 @@ class Lift(SingleArmEnv):
                 options specified.
         """
         # Run superclass method first
+        # TODO Rachel change this to vis_settings=vis_settings if you want to visualize sites again
         super().visualize(vis_settings={vis: False for vis in self._visualizations})
-
-        # Color the gripper visualization site according to its distance to the cube
-        if vis_settings["grippers"]:
-            self._visualize_gripper_to_target(gripper=self.robots[0].gripper, target=self.cubes[0])
 
     def _check_success(self):
         """
@@ -485,7 +413,7 @@ class Lift(SingleArmEnv):
         Returns:
             bool: True if cube has been lifted
         """
-        cube_height = self.sim.data.body_xpos[self.cube_body_id][2]
+        cube_height = 0
         table_height = self.model.mujoco_arena.table_offset[2]
 
         # cube is higher than the table top above a margin

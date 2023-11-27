@@ -18,7 +18,7 @@ class BoxObject(PrimitiveObject):
         size=None,
         size_max=None,
         size_min=None,
-        density=500,
+        density=100,
         friction=None,
         rgba=None,
         solref=None,

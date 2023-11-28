@@ -261,9 +261,10 @@ class OperationalSpaceController(Controller):
             self.goal_ori = set_goal_orientation(
                 scaled_delta[3:], self.ee_ori_mat, orientation_limit=self.orientation_limits, set_ori=set_ori
             )
-        self.goal_pos = set_goal_position(
-            scaled_delta[:3], self.ee_pos, position_limit=self.position_limits, set_pos=set_pos
-        )
+        if np.linalg.norm(scaled_delta[:3]) > 0.0:
+            self.goal_pos = set_goal_position(
+                scaled_delta[:3], self.ee_pos, position_limit=self.position_limits, set_pos=set_pos
+            )
 
         if self.interpolator_pos is not None:
             self.interpolator_pos.set_goal(self.goal_pos)

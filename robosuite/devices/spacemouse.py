@@ -153,6 +153,23 @@ class SpaceMouse(Device):
         self._enabled = False
         self._buttons = [0.0, 0.0]
 
+        self.last_button_state = [0, 0]
+        self.sslim_grasps = np.zeros([5,7])
+        # left full grasp
+        self.sslim_grasps[0,:] = np.array([np.pi, np.pi, np.pi, np.pi, 1, np.pi, np.pi])
+        # left pre-grasp
+        self.sslim_grasps[1,:] = np.array([np.pi/8, np.pi/10, np.pi/8, np.pi/10, 1, np.pi/8, np.pi/10])
+        # open
+        self.sslim_grasps[2,:] = np.array([0, 0, 0, 0, 1, 0, 0])
+        # right pre-grasp
+        self.sslim_grasps[3,:] = np.array([-np.pi/8, -np.pi/10, -np.pi/8, -np.pi/10, 1, -np.pi/8, -np.pi/10])
+        # right full grasp
+        self.sslim_grasps[4,:] = np.array([-np.pi, -np.pi, -np.pi, -np.pi, 1, -np.pi, -np.pi])
+
+        self.sslim_state = 2 # open by default
+
+        self.last_clicked = [-1, -1]
+
     @staticmethod
     def _display_controls():
         """
@@ -193,13 +210,14 @@ class SpaceMouse(Device):
 
     def _get_spacemouse_commands(self, data):
         self._axes = data.axes
+        self.last_button_state = self._buttons
         self._buttons = data.buttons
 
-        self.y = self._axes[0]
-        self.x = self._axes[1] * -1
+        self.y = self._axes[1] 
+        self.x = self._axes[0] 
         self.z = self._axes[2]
-        self.roll = self._axes[3]
-        self.pitch = self._axes[4] * -1
+        self.roll = self._axes[4]
+        self.pitch = self._axes[3]
         self.yaw = self._axes[5] * -1
         self._control = [
             self.x,
@@ -292,35 +310,57 @@ class SpaceMouse(Device):
             if self._buttons[1]:
                 self.dq[0] = max(-1, self.dq[0] - 0.1)
         else:
-            self.alpha = 0.1
-            self.alpha2 = 0.08
-            if self._buttons[0]:
-                if self.dq[0] <= 1.5:
-                    self.dq[0] += self.alpha * self.pos_sensitivity
-                    self.dq[2] += self.alpha * self.pos_sensitivity
-                    if self.link_thumb:
-                        self.dq[5] += self.alpha * self.pos_sensitivity
+            # if  we have a new button 0 press
+            if self._buttons[0] == 1:
+                # check if enough time has passed
+                t0 = time.time()
+                if t0 - self.last_clicked[0] > 0.1:
+                    self.sslim_state = max(0, self.sslim_state - 1)
 
-                    if not self.pinch:
-                        self.dq[1] += self.alpha2 * self.pos_sensitivity
-                        self.dq[3] += self.alpha2 * self.pos_sensitivity
-                        if self.link_thumb:
-                            self.dq[6] += self.alpha2 * self.pos_sensitivity
+                self.last_clicked[0] = t0
 
-            if self._buttons[1]:
-                if self.dq[0] >= -1.5:
-                    self.dq[0] -= self.alpha * self.pos_sensitivity
-                    self.dq[2] -= self.alpha * self.pos_sensitivity
-                    if self.link_thumb:
-                        self.dq[5] -= self.alpha * self.pos_sensitivity
+            if self._buttons[1] == 1:
+                t1 = time.time()
+                if t1 - self.last_clicked[1] > 0.1:
+                    self.sslim_state = min(4, self.sslim_state + 1)
+                self.last_clicked[1] = t1
 
-                    if not self.pinch:
-                        self.dq[1] -= self.alpha2 * self.pos_sensitivity
-                        self.dq[3] -= self.alpha2 * self.pos_sensitivity
-                        if self.link_thumb:
-                            self.dq[6] -= self.alpha2 * self.pos_sensitivity
+            # command the joint angles corresponding to the desired state
+            self.dq = self.sslim_grasps[self.sslim_state,:]
 
-            self.dq[4] = self.thumb_pos
+            # print(self.sslim_state)
+
+
+                
+            # self.alpha = 0.1
+            # self.alpha2 = 0.08
+            # if self._buttons[0]:
+            #     if self.dq[0] <= 1.5:
+            #         self.dq[0] += self.alpha * self.pos_sensitivity
+            #         self.dq[2] += self.alpha * self.pos_sensitivity
+            #         if self.link_thumb:
+            #             self.dq[5] += self.alpha * self.pos_sensitivity
+
+            #         if not self.pinch:
+            #             self.dq[1] += self.alpha2 * self.pos_sensitivity
+            #             self.dq[3] += self.alpha2 * self.pos_sensitivity
+            #             if self.link_thumb:
+            #                 self.dq[6] += self.alpha2 * self.pos_sensitivity
+
+            # if self._buttons[1]:
+            #     if self.dq[0] >= -1.5:
+            #         self.dq[0] -= self.alpha * self.pos_sensitivity
+            #         self.dq[2] -= self.alpha * self.pos_sensitivity
+            #         if self.link_thumb:
+            #             self.dq[5] -= self.alpha * self.pos_sensitivity
+
+            #         if not self.pinch:
+            #             self.dq[1] -= self.alpha2 * self.pos_sensitivity
+            #             self.dq[3] -= self.alpha2 * self.pos_sensitivity
+            #             if self.link_thumb:
+            #                 self.dq[6] -= self.alpha2 * self.pos_sensitivity
+
+            # self.dq[4] = self.thumb_pos
 
         return dict(
             dpos=dpos,

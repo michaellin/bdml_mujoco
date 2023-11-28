@@ -1,6 +1,7 @@
 from collections import OrderedDict
 
 import numpy as np
+from scipy.spatial.transform import Rotation as R
 
 from robosuite.environments.manipulation.single_arm_env import SingleArmEnv
 from robosuite.models.arenas import TableArena, CabinetArena
@@ -10,6 +11,7 @@ from robosuite.utils.mjcf_utils import CustomMaterial
 from robosuite.utils.observables import Observable, sensor
 from robosuite.utils.placement_samplers import UniformRandomSampler
 from robosuite.utils.transform_utils import convert_quat
+import time
 
 
 class ConstrainedReorient(SingleArmEnv):
@@ -157,7 +159,7 @@ class ConstrainedReorient(SingleArmEnv):
         horizon=1000,
         ignore_done=False,
         hard_reset=True,
-        camera_names="agentview",
+        camera_names="cabinetview",
         camera_heights=256,
         camera_widths=256,
         camera_depths=False,
@@ -168,7 +170,7 @@ class ConstrainedReorient(SingleArmEnv):
         # settings for table top
         self.table_full_size = table_full_size
         self.table_friction = table_friction
-        self.table_offset = np.array((0.35, 0, 1.4))
+        self.table_offset = np.array((0.35, 0, 1.5))
 
         # reward configuration
         self.reward_scale = reward_scale
@@ -297,27 +299,34 @@ class ConstrainedReorient(SingleArmEnv):
                 rgba=[0, 1, 0, 1],
                 material=greenwood,),]
         
-        self.cubes = [BoxObject(
-            name=f"cube{x}",
-            size_min=[0.035, 0.035, 0.070],  # [0.015, 0.015, 0.015],
-            size_max=[0.035, 0.035, 0.072],  # [0.018, 0.018, 0.018])
-            rgba=[1, 0, 0, 1],
-            material=redwood,
-        ) for x in range(2)]
+        self.goal_object = [BoxObject(
+                name=f"goal_object",
+                size=[0.07, 0.07, 0.3],
+                rgba=[0, 1, 0, 1],
+                material=greenwood,),]
+        
+        # self.cubes = [BoxObject(
+        #     name=f"cube{x}",
+        #     size_min=[0.035, 0.035, 0.070],  # [0.015, 0.015, 0.015],
+        #     size_max=[0.035, 0.035, 0.072],  # [0.018, 0.018, 0.018])
+        #     rgba=[1, 0, 0, 1],
+        #     material=redwood,
+        # ) for x in range(2)]
 
 
-        self.cylinders = [CylinderObject(
-            name=f"cylinder{x}",
-            size=[0.035, 0.070],
-            rgba=[1, 0, 0, 1],
-            material=redwood,
-        ) for x in range(2)]
-            
+        # self.cylinders = [CylinderObject(
+        #     name=f"cylinder{x}",
+        #     size=[0.035, 0.070],
+        #     rgba=[1, 0, 0, 1],
+        #     material=redwood,
+        # ) for x in range(2)]
+        self.cubes = []
+        self.cylinders = []
 
         # Create placement initializer for base_object
         self.placement_initializer = UniformRandomSampler(
             name="ObjectSampler",
-            mujoco_objects=self.place_object,
+            mujoco_objects=self.place_object + self.cubes + self.cylinders + self.goal_object,
             x_range=[-0.1, 0.1],
             y_range=[-.2, 0.2],
             rotation=[0, np.pi/8, np.pi/6, np.pi/4, np.pi/3, np.pi/2, 3*np.pi/4, 5*np.pi/6, 7*np.pi/8, np.pi],
@@ -327,19 +336,6 @@ class ConstrainedReorient(SingleArmEnv):
             reference_pos=self.table_offset,
             z_offset=0.01,
         )
-
-        self.placement_initializer_2 = UniformRandomSampler(
-                name="ObjectSampler",
-                mujoco_objects=self.cubes + self.cylinders,
-                x_range=[-0.1, 0.1],
-                y_range=[-.2, 0.2],
-                rotation=[0, np.pi/8, np.pi/6, np.pi/4, np.pi/3, np.pi/2, 3*np.pi/4, 5*np.pi/6, 7*np.pi/8, np.pi],
-                rotation_axis='z',
-                ensure_object_boundary_in_range=False,
-                ensure_valid_placement=True,
-                reference_pos=self.table_offset,
-                z_offset=0.01,
-            )
 
         # task includes arena, robot, and objects of interest
         self.model = ManipulationTask(
@@ -357,7 +353,7 @@ class ConstrainedReorient(SingleArmEnv):
         super()._setup_references()
 
         # Additional object references from this env
-        self.cylinder_body_id = self.sim.model.body_name2id(self.place_object[0].root_body)
+        self.place_object_body_id = self.sim.model.body_name2id(self.place_object[0].root_body)
 
     def _setup_observables(self):
         """
@@ -376,6 +372,9 @@ class ConstrainedReorient(SingleArmEnv):
         """
         super()._reset_internal()
 
+        # start a timer to see how long it takes to succeed at the task
+        self.start_time = time.time()
+
         # Reset all object positions using initializer sampler if we're not directly loading from an xml
         if not self.deterministic_reset:
 
@@ -384,14 +383,11 @@ class ConstrainedReorient(SingleArmEnv):
 
             # Loop through all objects and reset their positions
             for obj_pos, obj_quat, obj in object_placements_place.values():
-                self.sim.data.set_joint_qpos(obj.joints[0], np.concatenate([np.array(obj_pos), np.array(obj_quat)]))
-
-             # Sample from the placement initializer for all objects
-            object_placements_place_2 = self.placement_initializer_2.sample()
-
-            # Loop through all objects and reset their positions
-            for obj_pos, obj_quat, obj in object_placements_place_2.values():
-                self.sim.data.set_joint_qpos(obj.joints[0], np.concatenate([np.array(obj_pos), np.array(obj_quat)]))
+                if obj.name == "goal_object":
+                    self.goal_pos = obj_pos
+                else:
+                    self.sim.data.set_joint_qpos(obj.joints[0], np.concatenate([np.array(obj_pos), np.array(obj_quat)]))
+                
 
     def visualize(self, vis_settings):
         """
@@ -413,8 +409,41 @@ class ConstrainedReorient(SingleArmEnv):
         Returns:
             bool: True if cube has been lifted
         """
-        cube_height = 0
-        table_height = self.model.mujoco_arena.table_offset[2]
+        # get placement object position
+        place_object_pos = self.sim.data.body_xpos[self.place_object_body_id]
+        goal_object_pos = self.goal_pos
 
-        # cube is higher than the table top above a margin
-        return cube_height > table_height + 0.04
+        # get placement object orientation
+        place_object_quat = self.sim.data.body_xquat[self.place_object_body_id]
+
+        # convert place_object_quat to euler angles
+        rot = R.from_quat(place_object_quat)
+        place_object_euler = R.as_euler(rot, 'xyz')
+        y_axis = place_object_euler[1]
+        upright_bool = np.linalg.norm(np.abs(y_axis) - np.pi / 2) < 1e-4
+
+        xy_margin = 0.035
+        z_margin = 0.001
+
+        placed_bool = np.linalg.norm(np.abs(place_object_pos[2]) - 1.5697844891596386) < z_margin
+
+        positioned_bool = (np.linalg.norm(place_object_pos[:2] - goal_object_pos[:2]) <= xy_margin)
+
+        # see how long it took to succeed
+
+        if positioned_bool and upright_bool and placed_bool:
+            elapsed_time = time.time() - self.start_time
+            print("Success! Time: {}".format(elapsed_time))
+            # reset
+            self._reset_internal()
+            return 2, elapsed_time
+        
+        if positioned_bool:
+            return 1, None
+        
+        else:
+            # print("positioned_bool: ", positioned_bool)
+            # print("upright_bool: ", upright_bool)
+            # print("z_height: ", np.abs(place_object_pos[2]))
+            return 0, None
+

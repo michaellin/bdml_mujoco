@@ -105,20 +105,24 @@ from robosuite.wrappers import VisualizationWrapper
 
 import mujoco_py    
 import glfw
+from mujoco_py.generated import const
+from scipy.spatial.transform import Rotation
 
-
+def euler2mat(euler):
+    r = Rotation.from_euler('xyz', euler, degrees=False)
+    return r.as_matrix()
 
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--environment", type=str, default="Train")
+    parser.add_argument("--environment", type=str, default="ConstrainedReorient")
     parser.add_argument("--robots", nargs="+", type=str, default="PandaWrist", help="Which robot(s) to use in the env")
     parser.add_argument(
         "--config", type=str, default="single-arm-opposed", help="Specified environment configuration if necessary"
     )
     parser.add_argument("--arm", type=str, default="right", help="Which arm to control (eg bimanual) 'right' or 'left'")
     parser.add_argument("--switch-on-grasp", action="store_true", help="Switch gripper control on gripper action")
-    parser.add_argument("--toggle-camera-on-grasp", action="store_true", help="Switch camera angle on gripper action")
+    parser.add_argument("--toggle-  camera-on-grasp", action="store_true", help="Switch camera angle on gripper action")
     parser.add_argument("--controller", type=str, default="osc", help="Choice of controller. Can be 'ik' or 'osc'")
     parser.add_argument("--device", type=str, default="spacemouse")
     parser.add_argument("--pos-sensitivity", type=float, default=1.0, help="How much to scale position user inputs")
@@ -155,7 +159,7 @@ if __name__ == "__main__":
         **config,
         has_renderer=True,
         has_offscreen_renderer=False,
-        render_camera="agentview",
+        render_camera="cabinetview",
         ignore_done=True,
         use_camera_obs=False,
         reward_shaping=True,
@@ -249,5 +253,22 @@ if __name__ == "__main__":
 
             # Step through the simulation and render
             obs, reward, done, info = env.step(action)
-            
-            env.render()
+
+            links2check = ["robot0_g0_col", "robot0_g1_col", "robot0_g2_col", "robot0_g3_col", "robot0_g4_col", "robot0_g5_col", "robot0_link7_collision", "robot0_link6_collision", "robot0_link5_collision"]
+            for i in range(env.sim.data.ncon):
+                con = env.sim.data.contact[i]
+                bool1 = env.sim.model.geom_id2name(con.geom1) in links2check and env.sim.model.geom_id2name(con.geom2) not in links2check
+                bool2 = env.sim.model.geom_id2name(con.geom2) in links2check and env.sim.model.geom_id2name(con.geom1) not in links2check
+                if bool1 or bool2:
+                    contact_pos = con.pos
+                    env.viewer.viewer.add_marker(type=const.GEOM_SPHERE, pos=contact_pos, size=np.array([0.02, 0.02, 0.02]), label='contact', rgba=[0.592, 0.863, 1, .4])
+
+            success, success_time = env._check_success()
+            if success == 2:
+                env.viewer.viewer.add_marker(type=const.GEOM_ARROW, pos=env.goal_pos, mat=euler2mat([np.pi, 0, 0]), label='', size=[0.01, 0.01, 0.6], rgba=[0, 1, 0, 1])
+            elif success == 1:
+                env.viewer.viewer.add_marker(type=const.GEOM_ARROW, pos=env.goal_pos, mat=euler2mat([np.pi, 0, 0]), label='', size=[0.01, 0.01, 0.6], rgba=[0.902, .616, .094, .6])
+            else:
+                env.viewer.viewer.add_marker(type=const.GEOM_ARROW, pos=env.goal_pos, mat=euler2mat([np.pi, 0, 0]), label='', size=[0.01, 0.01, 0.6], rgba=[1, 0, 0, .4])
+
+            env.render()    

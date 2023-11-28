@@ -83,9 +83,9 @@
 
 <!-- <body name="palm" pos="0 0.045 -0.04" quat="0 0 0.7071068 0.7071068"> -->
 <body name="palm" pos="0 -0.0165 -0.013" quat="0 0 0 1">
-    <site name="ft_frame" pos="0 -0.06 0" size="0.01 0.01 0.01" rgba="1 0 0 1" type="sphere" group="1"/>
-    <site name="grip_site" pos="0 -0.06 0" size="0.01 0.01 0.01" rgba="1 0 0 0.5" type="sphere" group="1"/>
-    <site name="grip_site_cylinder" pos="0 -0.06 0" size="0.005 10" rgba="0 1 0 0.3" type="cylinder" group="1"/>
+    <site name="ft_frame" pos="0 -0.06 0" size="0.01 0.01 0.01" rgba="1 0 0 0" type="sphere" group="1"/>
+    <site name="grip_site" pos="0 -0.06 0" size="0.01 0.01 0.01" rgba="1 0 0 0" type="sphere" group="1"/>
+    <site name="grip_site_cylinder" pos="0 -0.06 0" size="0.005 10" rgba="0 1 0 0" type="cylinder" group="1"/>
     <inertial pos="0 -0.0438654 -0.039785" quat="0.669686 0.742644 0 0" mass="0.352386" diaginertia="0.000671316 0.000534497 0.000195499"/>
     <geom pos="0 -0.1055 -0.0875" quat="0.707107 0.707107 0 0" type="mesh" contype="0" conaffinity="0" group="1" rgba="0.6 0.6 0.6 1" mesh="palm"/>
     <!-- <geom pos="0 -0.1055 -0.0875" quat="0.707107 0.707107 0 0" type="mesh" rgba="0.6 0.6 0.6 1" mesh="palm_col_0"/> -->

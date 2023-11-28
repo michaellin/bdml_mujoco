@@ -27,6 +27,7 @@ class PandaWrist(ManipulatorModel):
         return "SSLIMHand"
         # return "PandaGripper"
         # return None
+        # return "Robotiq85Gripper"
 
     @property
     def default_controller_config(self):
@@ -34,9 +35,14 @@ class PandaWrist(ManipulatorModel):
 
     @property
     def init_qpos(self):
-        return np.array([0, -np.pi / 3.0, 0.00, -np.pi / 2.5 - np.pi / 3.0, 0.00, np.pi - 1.0, np.pi / 4, np.pi / 4, 0])
-        # return np.array([0, -np.pi / 2.5, 0.00, -np.pi / 2.5 - np.pi / 2.5, 0.00, np.pi - 1.2, np.pi / 4, -np.pi / 3.5, 0])
-    # return np.array([0, np.pi / 16.0, 0.00, -np.pi / 2.0 - np.pi / 3.0, 0.00, np.pi - 0.2, np.pi / 4, 0, 0]
+        # Robotiq
+        # return np.array([0, -np.pi / 2.5, 0.00, -np.pi / 2.5 - np.pi / 2.2, 0.00, np.pi - 0.4, np.pi / 4, 0, np.pi / 2])
+
+        # SSLIM OG
+        return np.array([0, -np.pi / 2.5, 0.00, -np.pi / 2.5 - np.pi / 2.2, 0.00, np.pi - 0.4, np.pi / 4, np.pi / 2.5, 0])
+    
+        # SSLIM new wrist placement
+        # return np.array([0, -np.pi / 2.2, 0.00, -np.pi / 2.5 - np.pi / 2.2, 0.00, np.pi - 0.4, np.pi / 4, 0, 0])
 
     @property
     def base_xpos_offset(self):

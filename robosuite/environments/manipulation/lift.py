@@ -157,7 +157,7 @@ class Lift(SingleArmEnv):
         horizon=1000,
         ignore_done=False,
         hard_reset=True,
-        camera_names="agentview",
+        camera_names="sideview",
         camera_heights=256,
         camera_widths=256,
         camera_depths=False,
@@ -339,9 +339,6 @@ class Lift(SingleArmEnv):
         ))
 
        
-
-        print(self.cylinders[0].material)
-
         # Create placement initializer for cube
         if self.placement_initializer is not None:
             self.placement_initializer.reset()

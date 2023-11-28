@@ -10,8 +10,8 @@
         <motor ctrllimited="true" ctrlrange="-12.0 12.0" joint="joint7" name="torq_j7"/>
 		<!-- <position ctrllimited="true" ctrlrange="-3.14 3.14" joint="wristPitchJoint" kp="1000" name="wristPitchJoint" forcelimited="true" forcerange="-20 20"/>
         <position ctrllimited="true" ctrlrange="-3.14 3.14" joint="wristYawJoint" kp="1000" name="wristYawJoint" forcelimited="true" forcerange="-20 20"/> -->
-        <motor ctrllimited="true" ctrlrange="-5.0 5.0" joint="wristPitchJoint" name="torq_jwristPitchJoint"/>
-        <motor ctrllimited="true" ctrlrange="-5.0 5.0" joint="wristYawJoint" name="torq_wristYawJoint"/>
+        <motor ctrllimited="true" ctrlrange="-10.0 10.0" joint="wristPitchJoint" name="torq_jwristPitchJoint"/>
+        <motor ctrllimited="true" ctrlrange="-10.0 10.0" joint="wristYawJoint" name="torq_wristYawJoint"/>
     </actuator>
 
     <asset>
@@ -89,7 +89,8 @@
                                             <geom type="mesh" group="0" mesh="link7" name="link7_collision"/>
 											
 														
-											<body name="forearm_right_old" pos="0 0 0.1065" quat="0.6532815 -0.2705981 -0.6532815 -0.2705981">
+											<!-- <body name="forearm_right_old" pos="0 0 0.1065" quat="-0.27059805  0.65328148  0.27059805  0.65328148"> -->
+                                            <body name="forearm_right_old" pos="0 0 0.1065" quat="0.6532815 -0.2705981 -0.6532815 -0.2705981">
 												<inertial pos="0.0527196 2.77187e-08 7.99697e-08" quat="1.76394e-05 0.707098 1.76389e-05 0.707115" mass="0.326557" diaginertia="0.000462499 0.000445332 0.000130756"/>
 												<geom pos="0 1.46215e-07 -8.50056e-07" quat="0.707107 0 -0.707107 0" type="mesh" contype="0" conaffinity="0" group="1" rgba="0.301961 0.301961 0.301961 .1" mesh="forearm_right_old" />
 												<geom pos="0 1.46215e-07 -8.50056e-07" quat="0.707107 0 -0.707107 0" type="mesh" rgba="0.301961 0.301961 0.301961 1" mesh="forearm_col_0"/>

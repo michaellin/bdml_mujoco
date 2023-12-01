@@ -97,11 +97,12 @@ Examples:
 import argparse
 
 import numpy as np
+import time
 
 import robosuite as suite
 from robosuite import load_controller_config
 from robosuite.utils.input_utils import input2action
-from robosuite.wrappers import VisualizationWrapper
+from robosuite.wrappers import VisualizationWrapper, DataCollectionWrapper
 
 import mujoco_py    
 import glfw
@@ -112,10 +113,15 @@ def euler2mat(euler):
     r = Rotation.from_euler('xyz', euler, degrees=False)
     return r.as_matrix()
 
+def quat2mat(quat):
+    r = Rotation.from_quat(quat)
+    return r.as_matrix()
+
+
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--environment", type=str, default="ConstrainedReorient")
+    parser.add_argument("--environment", type=str, default="ConstrainedReorient", help="Name of the environment to run")
     parser.add_argument("--robots", nargs="+", type=str, default="PandaWrist", help="Which robot(s) to use in the env")
     parser.add_argument(
         "--config", type=str, default="single-arm-opposed", help="Specified environment configuration if necessary"
@@ -127,6 +133,7 @@ if __name__ == "__main__":
     parser.add_argument("--device", type=str, default="spacemouse")
     parser.add_argument("--pos-sensitivity", type=float, default=1.0, help="How much to scale position user inputs")
     parser.add_argument("--rot-sensitivity", type=float, default=1.0, help="How much to scale rotation user inputs")
+    parser.add_argument("--directory", type=str, default="/home/rthom/Documents/Research/TRI/sslim_user_study_data")
     args = parser.parse_args()
 
     # Import controller config for EE IK or OSC (pos/ori)
@@ -169,6 +176,10 @@ if __name__ == "__main__":
 
     # Wrap this environment in a visualization wrapper
     env = VisualizationWrapper(env, indicator_configs=None)
+
+    # Wrap this environment in a data collection wrapper
+    data_directory = args.directory
+    # env = DataCollectionWrapper(env, data_directory)
 
     # Setup printing options for numbers
     np.set_printoptions(formatter={"float": lambda x: "{0:0.3f}".format(x)})
@@ -263,12 +274,22 @@ if __name__ == "__main__":
                     contact_pos = con.pos
                     env.viewer.viewer.add_marker(type=const.GEOM_SPHERE, pos=contact_pos, size=np.array([0.02, 0.02, 0.02]), label='contact', rgba=[0.592, 0.863, 1, .4])
 
-            success, success_time = env._check_success()
-            if success == 2:
-                env.viewer.viewer.add_marker(type=const.GEOM_ARROW, pos=env.goal_pos, mat=euler2mat([np.pi, 0, 0]), label='', size=[0.01, 0.01, 0.6], rgba=[0, 1, 0, 1])
-            elif success == 1:
-                env.viewer.viewer.add_marker(type=const.GEOM_ARROW, pos=env.goal_pos, mat=euler2mat([np.pi, 0, 0]), label='', size=[0.01, 0.01, 0.6], rgba=[0.902, .616, .094, .6])
-            else:
-                env.viewer.viewer.add_marker(type=const.GEOM_ARROW, pos=env.goal_pos, mat=euler2mat([np.pi, 0, 0]), label='', size=[0.01, 0.01, 0.6], rgba=[1, 0, 0, .4])
 
+            if "ConstrainedReorient" in args.environment:
+                success, success_time = env._check_success()
+                if success == 2:
+                    env.viewer.viewer.add_marker(type=const.GEOM_ARROW, pos=env.goal_pos, mat=euler2mat([np.pi, 0, 0]), label='', size=[0.01, 0.01, 0.6], rgba=[0, 1, 0, 1])
+                elif success == 1:
+                    env.viewer.viewer.add_marker(type=const.GEOM_ARROW, pos=env.goal_pos, mat=euler2mat([np.pi, 0, 0]), label='', size=[0.01, 0.01, 0.6], rgba=[0.902, .616, .094, .6])
+                else:
+                    env.viewer.viewer.add_marker(type=const.GEOM_ARROW, pos=env.goal_pos, mat=euler2mat([np.pi, 0, 0]), label='', size=[0.01, 0.01, 0.6], rgba=[1, 0, 0, .4])
+
+            if "Lift" in args.environment:
+                success, success_time = env._check_success()
+                if success:
+                    env.viewer.viewer.add_marker(type=const.GEOM_LABEL, pos=env.goal_object_pos, label='Success!', size=[1,1,1], rgba=[0, 0, 1, 1])
+                    env.render()
+                    time.sleep(3)
+                    device._reset_internal_state()
+                    env._reset_internal()
             env.render()    

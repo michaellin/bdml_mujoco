@@ -4,7 +4,7 @@ from robosuite.models.robots.manipulators.manipulator_model import ManipulatorMo
 from robosuite.utils.mjcf_utils import xml_path_completion
 
 
-class Panda(ManipulatorModel):
+class Flexiv(ManipulatorModel):
     """
     Panda is a sensitive single-arm robot designed by Franka.
 
@@ -13,7 +13,7 @@ class Panda(ManipulatorModel):
     """
 
     def __init__(self, idn=0):
-        super().__init__(xml_path_completion("robots/panda/robot.xml"), idn=idn)
+        super().__init__(xml_path_completion("robots/flexiv/robot.xml"), idn=idn)
 
         # Set joint damping
         self.set_joint_attribute(attrib="damping", values=np.array((0.1, 0.1, 0.1, 0.1, 0.1, 0.01, 0.01)))
@@ -24,10 +24,10 @@ class Panda(ManipulatorModel):
 
     @property
     def default_gripper(self):
+        # return "SSLIMHand"
         # return "PandaGripper"
-        return "Robotiq85Gripper"
-        # return "SSLIMGripper"
-        # return None
+        return None
+        # return "Robotiq85Gripper"
 
     @property
     def default_controller_config(self):
@@ -35,11 +35,9 @@ class Panda(ManipulatorModel):
 
     @property
     def init_qpos(self):
-        return np.array([0, -np.pi / 4.0, 0.00, -np.pi / 2.5 - np.pi / 3.0, 0.00, np.pi - 0.6, np.pi / 4])
-        # return np.array([-2.174,1.160,1.077,-2.003,1.129,2.519,-1.824])
-        
-        #return np.array([-0.923, 0.734, 0.688, -2.245, 2.693, 2.012, -0.685])
-        
+        # Robotiq
+        # return np.array([0, -np.pi / 2.5, 0.00, -np.pi / 2.5 - np.pi / 2.2, 0.00, np.pi - 0.4, np.pi / 4])
+        return np.zeros(7)
 
     @property
     def base_xpos_offset(self):

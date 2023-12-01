@@ -73,7 +73,7 @@ if __name__ == "__main__":
     parser.add_argument("--environment", type=str, default="Door")
     parser.add_argument("--robots", nargs="+", type=str, default="Panda", help="Which robot(s) to use in the env")
     parser.add_argument("--directory", type=str, default="/tmp/")
-    parser.add_argument("--timesteps", type=int, default=1000)
+    parser.add_argument("--timesteps", type=int, default=100)
     args = parser.parse_args()
 
     # create original environment
@@ -101,7 +101,7 @@ if __name__ == "__main__":
     collect_random_trajectory(env, timesteps=args.timesteps)
 
     # playback some data
-    _ = input("Press any key to begin the playback...")
+    # _ = input("Press any key to begin the playback...")
     print("Playing back the data...")
     data_directory = env.ep_directory
     playback_trajectory(env, data_directory)

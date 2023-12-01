@@ -156,7 +156,7 @@ class SpaceMouse(Device):
         self.last_button_state = [0, 0]
         self.sslim_grasps = np.zeros([5,7])
         # left full grasp
-        self.sslim_grasps[0,:] = np.array([np.pi, np.pi, np.pi, np.pi, 1, np.pi, np.pi])
+        self.sslim_grasps[0,:] = np.array([2*np.pi, 2*np.pi, 2*np.pi, 2*np.pi, 1, 2*np.pi, 2*np.pi])
         # left pre-grasp
         self.sslim_grasps[1,:] = np.array([np.pi/8, np.pi/10, np.pi/8, np.pi/10, 1, np.pi/8, np.pi/10])
         # open
@@ -164,7 +164,7 @@ class SpaceMouse(Device):
         # right pre-grasp
         self.sslim_grasps[3,:] = np.array([-np.pi/8, -np.pi/10, -np.pi/8, -np.pi/10, 1, -np.pi/8, -np.pi/10])
         # right full grasp
-        self.sslim_grasps[4,:] = np.array([-np.pi, -np.pi, -np.pi, -np.pi, 1, -np.pi, -np.pi])
+        self.sslim_grasps[4,:] = np.array([-2*np.pi, -2*np.pi, -2*np.pi, -2*np.pi, 1, -2*np.pi, -2*np.pi])
 
         self.sslim_state = 2 # open by default
 
@@ -205,8 +205,7 @@ class SpaceMouse(Device):
         if self.use_robotiq:
             self.dq = [0]
         else:
-            self.dq = np.zeros(7)
-            self.dq[4] = 1.0
+            self.sslim_state = 2
 
     def _get_spacemouse_commands(self, data):
         self._axes = data.axes

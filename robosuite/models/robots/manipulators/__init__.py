@@ -7,3 +7,4 @@ from .kinova3_robot import Kinova3
 from .iiwa_robot import IIWA
 from .ur5e_robot import UR5e
 from .panda_wrist_robot import PandaWrist
+from .flexiv import Flexiv

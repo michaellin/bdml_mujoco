@@ -295,13 +295,13 @@ class ConstrainedReorient(SingleArmEnv):
 
         self.place_object = [BoxObject(
                 name=f"box_object",
-                size=[0.07, 0.035, 0.035],
+                size=[0.06, 0.03, 0.03],
                 rgba=[0, 1, 0, 1],
                 material=greenwood,),]
         
         self.goal_object = [BoxObject(
                 name=f"goal_object",
-                size=[0.07, 0.07, 0.3],
+                size=[0.06, 0.06, 0.3],
                 rgba=[0, 1, 0, 1],
                 material=greenwood,),]
         
@@ -422,10 +422,10 @@ class ConstrainedReorient(SingleArmEnv):
         y_axis = place_object_euler[1]
         upright_bool = np.linalg.norm(np.abs(y_axis) - np.pi / 2) < 1e-4
 
-        xy_margin = 0.035
+        xy_margin = 0.03
         z_margin = 0.001
 
-        placed_bool = np.linalg.norm(np.abs(place_object_pos[2]) - 1.5697844891596386) < z_margin
+        placed_bool = np.linalg.norm(np.abs(place_object_pos[2]) - 1.5597844891596204) < z_margin
 
         positioned_bool = (np.linalg.norm(place_object_pos[:2] - goal_object_pos[:2]) <= xy_margin)
 

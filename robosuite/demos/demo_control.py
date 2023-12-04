@@ -109,6 +109,8 @@ import glfw
 from mujoco_py.generated import const
 from scipy.spatial.transform import Rotation
 
+from robosuite.scripts.manipulability_analysis import calculateManipulabilityEllipsoid
+
 def euler2mat(euler):
     r = Rotation.from_euler('xyz', euler, degrees=False)
     return r.as_matrix()
@@ -121,7 +123,7 @@ def quat2mat(quat):
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--environment", type=str, default="ConstrainedReorient", help="Name of the environment to run")
+    parser.add_argument("--environment", type=str, default="SingleArmEnv", help="Name of the environment to run")
     parser.add_argument("--robots", nargs="+", type=str, default="PandaWrist", help="Which robot(s) to use in the env")
     parser.add_argument(
         "--config", type=str, default="single-arm-opposed", help="Specified environment configuration if necessary"
@@ -292,4 +294,13 @@ if __name__ == "__main__":
                     time.sleep(3)
                     device._reset_internal_state()
                     env._reset_internal()
+
+            J_pos = np.array(env.sim.data.get_site_jacp('gripper0_grip_site').reshape((3, -1))[:, [0,1,2,3,4,5,6,7,8]])
+            J_ori = np.array(env.sim.data.get_site_jacr('gripper0_grip_site').reshape((3, -1))[:, [0,1,2,3,4,5,6,7,8]])
+            w, v, w2, v2 = calculateManipulabilityEllipsoid(J_pos, J_ori)
+            w2 = w2 / 5 
+            # print(env.sim.data.get_site_xpos('gripper0_grip_site'))
+            env.viewer.viewer.add_marker(type=const.GEOM_ELLIPSOID, pos=env.sim.data.get_site_xpos('gripper0_grip_site'), mat=v, size=np.array([w[0], w[1], w[2]]), label='manipulability', rgba=[0.592, 0.863, 1, .4])
+            
+
             env.render()    

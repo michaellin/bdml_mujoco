@@ -64,7 +64,7 @@
 
 <worldbody>
 
-<body name="palm" pos="0 0.045 -0.04" quat="0 0 0.7071068 0.7071068">
+<body name="palm" pos="0 -0.0165 -0.013" quat="0 0 0 1">
     <site name="ft_frame" pos="0 -0.06 0" size="0.01 0.01 0.01" rgba="1 0 0 0" type="sphere" group="1"/>
     <site name="grip_site" pos="0 -0.06 0" size="0.01 0.01 0.01" rgba="1 0 0 0" type="sphere" group="1"/>
     <site name="grip_site_cylinder" pos="0 -0.06 0" size="0.005 10" rgba="0 1 0 0" type="cylinder" group="1"/>

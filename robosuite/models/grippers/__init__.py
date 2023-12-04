@@ -5,6 +5,7 @@ from .gripper_tester import GripperTester
 from .panda_gripper import PandaGripper
 from .rethink_gripper import RethinkGripper
 from .robotiq_85_gripper import Robotiq85Gripper
+from .robotiq_85_gripper import Robotiq4Wrist
 from .robotiq_three_finger_gripper import RobotiqThreeFingerGripper, RobotiqThreeFingerDexterousGripper
 from .panda_gripper import PandaGripper
 from .jaco_three_finger_gripper import JacoThreeFingerGripper, JacoThreeFingerDexterousGripper
@@ -16,6 +17,7 @@ from .reach_gripper import ReachGripper
 from .reach_kinova_gripper import ReachKinovaGripper
 from .sslim_gripper import SSLIM
 from .sslim_hand import SSLIM_Hand
+from .sslim_hand import SSLIM_Hand2
 
 
 GRIPPER_MAPPING = {
@@ -28,6 +30,7 @@ GRIPPER_MAPPING = {
     "ReachKinovaGripper": ReachKinovaGripper,
     "RRGripper": RRGripper,
     "Robotiq85Gripper": Robotiq85Gripper,
+    "Robotiq4Wrist": Robotiq4Wrist,
     "Robotiq140Gripper": Robotiq140Gripper,
     "RobotiqThreeFingerGripper": RobotiqThreeFingerGripper,
     "RobotiqThreeFingerDexterousGripper": RobotiqThreeFingerDexterousGripper,
@@ -35,6 +38,7 @@ GRIPPER_MAPPING = {
     "ReachKinovaGripper": ReachKinovaGripper,
     "SSLIMGripper": SSLIM,
     "SSLIMHand": SSLIM_Hand,
+    "SSLIMHand2": SSLIM_Hand2,
     None: NullGripper,
 }
 

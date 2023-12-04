@@ -39,10 +39,10 @@ class PandaWrist(ManipulatorModel):
         # return np.array([0, -np.pi / 2.5, 0.00, -np.pi / 2.5 - np.pi / 2.2, 0.00, np.pi - 0.4, np.pi / 4, 0, np.pi / 2])
 
         # SSLIM OG
-        return np.array([0, -np.pi / 2.5, 0.00, -np.pi / 2.5 - np.pi / 2.2, 0.00, np.pi - 0.4, np.pi / 4, np.pi / 2.5, 0])
+        # return np.array([0, -np.pi / 2.5, 0.00, -np.pi / 2.5 - np.pi / 2.2, 0.00, np.pi - 0.4, np.pi / 4, np.pi / 2.5, 0])
     
         # SSLIM new wrist placement
-        # return np.array([0, -np.pi / 2.2, 0.00, -np.pi / 2.5 - np.pi / 2.2, 0.00, np.pi - 0.4, np.pi / 4, 0, 0])
+        return np.array([0, -np.pi / 2.2, 0.00, -np.pi / 2.5 - np.pi / 2.2, 0.00, np.pi - 0.4, np.pi / 4, 0, 0])
 
     @property
     def base_xpos_offset(self):

@@ -90,6 +90,14 @@ if __name__ == "__main__":
     for i in range(10000):
         # Get the current end effector position
         eef_pos = env.sim.data.get_site_xpos('gripper0_grip_site')
+
+        # Get the desired end effector position
+        desired_pos = positions[position_index]
+
+        # Get the error between current and desired position
+        error = desired_pos - eef_pos
+
+        
         action = np.random.uniform(low, high)
         obs, reward, done, _ = env.step(action)
         env.render()

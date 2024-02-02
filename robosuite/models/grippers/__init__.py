@@ -18,6 +18,7 @@ from .reach_kinova_gripper import ReachKinovaGripper
 from .sslim_gripper import SSLIM
 from .sslim_hand import SSLIM_Hand
 from .sslim_hand import SSLIM_Hand2
+from .robotiq_2f85 import Robotiq_2F85
 
 
 GRIPPER_MAPPING = {
@@ -39,6 +40,7 @@ GRIPPER_MAPPING = {
     "SSLIMGripper": SSLIM,
     "SSLIMHand": SSLIM_Hand,
     "SSLIMHand2": SSLIM_Hand2,
+    "Robotiq_2F85": Robotiq_2F85,
     None: NullGripper,
 }
 

@@ -12,7 +12,7 @@ class PandaWrist(ManipulatorModel):
         idn (int or str): Number or some other unique identification string for this robot instance
     """
 
-    def __init__(self, idn=0):
+    def __init__(self, idn=0, gripper_type=None):
         super().__init__(xml_path_completion("robots/panda_wrist/robot.xml"), idn=idn)
 
         # Set joint damping
@@ -24,10 +24,7 @@ class PandaWrist(ManipulatorModel):
 
     @property
     def default_gripper(self):
-        return "SSLIMHand"
-        # return "PandaGripper"
-        # return None
-        # return "Robotiq85Gripper"
+        return "Robotiq4Wrist"
 
     @property
     def default_controller_config(self):
@@ -36,13 +33,8 @@ class PandaWrist(ManipulatorModel):
     @property
     def init_qpos(self):
         # Robotiq
-        # return np.array([0, -np.pi / 2.5, 0.00, -np.pi / 2.5 - np.pi / 2.2, 0.00, np.pi - 0.4, np.pi / 4, 0, np.pi / 2])
+        return np.array([0, -np.pi / 2.5, 0.00, -np.pi / 2.5 - np.pi / 2.5, 0.00, np.pi - 0.8, np.pi / 4, -0.4, np.pi / 2])
 
-        # SSLIM OG
-        # return np.array([0, -np.pi / 2.5, 0.00, -np.pi / 2.5 - np.pi / 2.2, 0.00, np.pi - 0.4, np.pi / 4, np.pi / 2.5, 0])
-    
-        # SSLIM new wrist placement
-        return np.array([0, -np.pi / 2.2, 0.00, -np.pi / 2.5 - np.pi / 2.2, 0.00, np.pi - 0.4, np.pi / 4, 0, 0])
 
     @property
     def base_xpos_offset(self):

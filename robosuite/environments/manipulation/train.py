@@ -168,7 +168,7 @@ class Train(SingleArmEnv):
         # settings for table top
         self.table_full_size = table_full_size
         self.table_friction = table_friction
-        self.table_offset = np.array((0.35, 0, 1.4))
+        self.table_offset = np.array((0.25, 0, 1.3))
 
         # reward configuration
         self.reward_scale = reward_scale
@@ -180,6 +180,8 @@ class Train(SingleArmEnv):
         # object placement initializer
         self.placement_initializer = placement_initializer
         self.placement_initializer2 = None
+
+        self.rot_grasp = 0
 
         super().__init__(
             robots=robots,
@@ -238,24 +240,6 @@ class Train(SingleArmEnv):
         # sparse completion reward
         if self._check_success():
             reward = 2.25
-
-        # use a shaping reward
-        elif self.reward_shaping:
-
-            # reaching reward
-            cube_pos = self.sim.data.body_xpos[self.cube_body_id]
-            gripper_site_pos = self.sim.data.site_xpos[self.robots[0].eef_site_id]
-            dist = np.linalg.norm(gripper_site_pos - cube_pos)
-            reaching_reward = 1 - np.tanh(10.0 * dist)
-            reward += reaching_reward
-
-            # grasping reward
-            # if self._check_grasp(gripper=self.robots[0].gripper, object_geoms=self.cube):
-            #     reward += 0.25
-
-        # Scale reward if requested
-        if self.reward_scale is not None:
-            reward *= self.reward_scale / 2.25
 
         return reward
 
@@ -316,11 +300,7 @@ class Train(SingleArmEnv):
             rgba=[1, 0, 0, 1],
             material=redwood,)
 
-        self.place_object = [CylinderObject(
-            name=f"cyl_place_object",
-            size=[0.035, 0.070],
-            rgba=[0, 1, 0, 1],
-            material=greenwood,), 
+        self.place_object = [
             BoxObject(
                 name=f"box_place_object",
                 size=[0.035, 0.035, 0.070],
@@ -334,31 +314,31 @@ class Train(SingleArmEnv):
             
 
         # Create placement initializer for base_object
-        self.placement_initializer_base = UniformRandomSampler(
+        # self.placement_initializer_base = UniformRandomSampler(
+        #     name="ObjectSampler",
+        #     mujoco_objects=[self.base_object],
+        #     x_range=[-0.1, 0.1],
+        #     y_range=[-.2, 0.2],
+        #     rotation=[0, np.pi/4, np.pi/6],
+        #     rotation_axis='z', # 'z
+        #     ensure_object_boundary_in_range=False,
+        #     ensure_valid_placement=True,
+        #     reference_pos=self.table_offset,
+        #     z_offset=0.03,
+        # )
+
+        # Create placement initializer for place
+        self.placement_initializer = UniformRandomSampler(
             name="ObjectSampler",
-            mujoco_objects=[self.base_object],
+            mujoco_objects=self.place_object + [self.base_object],
             x_range=[-0.1, 0.1],
             y_range=[-.2, 0.2],
             rotation=[0, np.pi/4, np.pi/6],
-            rotation_axis='z', # 'z
+            rotation_axis='z',
             ensure_object_boundary_in_range=False,
             ensure_valid_placement=True,
             reference_pos=self.table_offset,
-            z_offset=0.01,
-        )
-
-        # Create placement initializer for place
-        self.placement_initializer_place = UniformRandomSampler(
-            name="ObjectSampler",
-            mujoco_objects=self.place_object,
-            x_range=[-0.1, 0.1],
-            y_range=[-.2, 0.2],
-            rotation=[0, np.pi / 2.0],
-            rotation_axis='x',
-            ensure_object_boundary_in_range=False,
-            ensure_valid_placement=True,
-            reference_pos=self.table_offset,
-            z_offset=0.01,
+            z_offset=0.03,
         )
 
 
@@ -378,8 +358,9 @@ class Train(SingleArmEnv):
         super()._setup_references()
 
         # Additional object references from this env
-        self.cube_body_id = self.sim.model.body_name2id(self.base_object.root_body)
-        self.cylinder_body_id = self.sim.model.body_name2id(self.place_object[0].root_body)
+        self.place_object_body_id = self.sim.model.body_name2id(self.place_object[0].root_body)
+        self.place_object_rot_body_id = self.sim.model.body_name2id(self.place_object[1].root_body)
+        
 
     def _setup_observables(self):
         """
@@ -389,40 +370,6 @@ class Train(SingleArmEnv):
             OrderedDict: Dictionary mapping observable names to its corresponding Observable object
         """
         observables = super()._setup_observables()
-
-        # low-level object information
-        if self.use_object_obs:
-            # Get robot prefix and define observables modality
-            pf = self.robots[0].robot_model.naming_prefix
-            modality = "object"
-
-            # cube-related observables
-            @sensor(modality=modality)
-            def cube_pos(obs_cache):
-                return np.array(self.sim.data.body_xpos[self.cube_body_id])
-
-            @sensor(modality=modality)
-            def cube_quat(obs_cache):
-                return convert_quat(np.array(self.sim.data.body_xquat[self.cube_body_id]), to="xyzw")
-
-            @sensor(modality=modality)
-            def gripper_to_cube_pos(obs_cache):
-                return (
-                    obs_cache[f"{pf}eef_pos"] - obs_cache["cube_pos"]
-                    if f"{pf}eef_pos" in obs_cache and "cube_pos" in obs_cache
-                    else np.zeros(3)
-                )
-
-            sensors = [cube_pos, cube_quat, gripper_to_cube_pos]
-            names = [s.__name__ for s in sensors]
-
-            # Create observables
-            for name, s in zip(names, sensors):
-                observables[name] = Observable(
-                    name=name,
-                    sensor=s,
-                    sampling_rate=self.control_freq,
-                )
 
         return observables
 
@@ -435,32 +382,31 @@ class Train(SingleArmEnv):
         # Reset all object positions using initializer sampler if we're not directly loading from an xml
         if not self.deterministic_reset:
 
-            # Sample from the placement initializer for all objects
-            object_placements_base = self.placement_initializer_base.sample()
+            # # Sample from the placement initializer for all objects
+            # object_placements_base = self.placement_initializer_base.sample()
 
-            # Loop through all objects and reset their positions
-            for obj_pos, obj_quat, obj in object_placements_base.values():
-                self.sim.data.set_joint_qpos(obj.joints[0], np.concatenate([np.array(obj_pos), np.array(obj_quat)]))
+            # # Loop through all objects and reset their positions
+            # for obj_pos, obj_quat, obj in object_placements_base.values():
+            #     self.sim.data.set_joint_qpos(obj.joints[0], np.concatenate([np.array(obj_pos), np.array(obj_quat)]))
 
             # Sample from the placement initializer for all objects
-            object_placements_place = self.placement_initializer_place.sample()
+            object_placements = self.placement_initializer.sample()
             
-            is_cylinder = np.random.choice([0,1])
             is_rot = np.random.choice([0,1])
 
-            if is_cylinder:
-                del object_placements_place['box_place_object']
-                del object_placements_place['box_place_object_rot']
+            self.rot_grasp = np.random.choice([0,1])
+
+            if is_rot:
+                del object_placements['box_place_object']
+                self.body_id = self.place_object_rot_body_id
             else:
-                del object_placements_place['cyl_place_object']
-                if is_rot:
-                    del object_placements_place['box_place_object']
-                else:
-                    del object_placements_place['box_place_object_rot']
+                del object_placements['box_place_object_rot']
+                self.body_id = self.place_object_body_id
 
             # Loop through all objects and reset their positions
-            for obj_pos, obj_quat, obj in object_placements_place.values():
+            for obj_pos, obj_quat, obj in object_placements.values():
                 self.sim.data.set_joint_qpos(obj.joints[0], np.concatenate([np.array(obj_pos), np.array(obj_quat)]))
+                self.obj_pos = obj_pos
 
     def visualize(self, vis_settings):
         """
@@ -473,7 +419,8 @@ class Train(SingleArmEnv):
         """
         # Run superclass method first
         # TODO Rachel change this to vis_settings=vis_settings if you want to visualize sites again
-        super().visualize(vis_settings={vis: False for vis in self._visualizations})
+        # super().visualize(vis_settings={vis: False for vis in self._visualizations})
+        super().visualize(vis_settings={vis: True for vis in self._visualizations})
 
     def _check_success(self):
         """
@@ -482,7 +429,9 @@ class Train(SingleArmEnv):
         Returns:
             bool: True if cube has been lifted
         """
-        cube_height = self.sim.data.body_xpos[self.cube_body_id][2]
+        self.place_object_pos = self.sim.data.body_xpos[self.body_id]
+        self.place_object_quat = self.sim.data.body_xquat[self.body_id]
+        cube_height = self.sim.data.body_xpos[self.body_id][2]
         table_height = self.model.mujoco_arena.table_offset[2]
 
         # cube is higher than the table top above a margin

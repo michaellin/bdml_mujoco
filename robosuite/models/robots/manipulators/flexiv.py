@@ -26,8 +26,8 @@ class Flexiv(ManipulatorModel):
     def default_gripper(self):
         # return "SSLIMHand"
         # return "PandaGripper"
-        return None
-        # return "Robotiq85Gripper"
+        # return None
+        return "Robotiq85Gripper"
 
     @property
     def default_controller_config(self):
@@ -35,9 +35,7 @@ class Flexiv(ManipulatorModel):
 
     @property
     def init_qpos(self):
-        # Robotiq
-        # return np.array([0, -np.pi / 2.5, 0.00, -np.pi / 2.5 - np.pi / 2.2, 0.00, np.pi - 0.4, np.pi / 4])
-        return np.zeros(7)
+        return np.array([-0.684, -0.635, -2.572, 2.118, -1.673, 2.099, 2.083])
 
     @property
     def base_xpos_offset(self):

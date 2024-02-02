@@ -32,12 +32,25 @@ def nullspace_torques(mass_matrix, nullspace_matrix, initial_joint, joint_pos, j
     # kv calculated below corresponds to critical damping
     joint_kv = np.sqrt(joint_kp) * 2
 
-    # weight the kp values for the wrist joints to be lower
+
     joint_kp_weighted = np.ones_like(joint_pos) * joint_kp
-    joint_kp_weighted[-3:] = 0
+    joint_kv_weighted = np.ones_like(joint_pos) * joint_kv
+    # weight the kp values for the wrist joints to be lower
+    if len(joint_pos) == 9:
+        joint_kp_weighted[-3:] = 0
+        joint_kv_weighted[-3:] = 0
+
+    elif len(joint_pos) == 8:
+        joint_kp_weighted[-2:] = 0
+        joint_kv_weighted[-2:] = 0
+
+    else:
+        joint_kp_weighted[-1:] = 0
+        joint_kv_weighted[-1:] = 0    
+
 
     # calculate desired torques based on gains and error
-    pose_torques = np.dot(mass_matrix, (joint_kp_weighted * (initial_joint - joint_pos) - joint_kv * joint_vel))
+    pose_torques = np.dot(mass_matrix, (joint_kp_weighted * (initial_joint - joint_pos) - joint_kv_weighted * joint_vel))
 
     # map desired torques to null subspace within joint torque actuator space
     nullspace_torques = np.dot(nullspace_matrix.transpose(), pose_torques)

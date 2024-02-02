@@ -142,7 +142,7 @@ class ConstrainedReorient(SingleArmEnv):
         controller_configs=None,
         gripper_types="default",
         initialization_noise="default",
-        table_full_size=(0.4, 0.54, 0.05),
+        table_full_size=(0.34, 0.58, 0.07),
         table_friction=(1.0, 5e-3, 1e-4),
         use_camera_obs=True,
         use_object_obs=True,
@@ -182,6 +182,14 @@ class ConstrainedReorient(SingleArmEnv):
         # object placement initializer
         self.placement_initializer = placement_initializer
         self.placement_initializer2 = None
+
+        # set trial counter
+        self.trial_counter = -1
+
+        # set random seed options
+        self.random_seed_options = [10,11,12,13,14,15,16,17,18,19]
+        np.random.shuffle(self.random_seed_options)
+
 
         super().__init__(
             robots=robots,
@@ -378,6 +386,16 @@ class ConstrainedReorient(SingleArmEnv):
         # Reset all object positions using initializer sampler if we're not directly loading from an xml
         if not self.deterministic_reset:
 
+            print("Count: ", self.trial_counter)
+            # set a random seed
+            np.random.seed(self.random_seed_options[self.trial_counter])
+
+            self.trial_counter += 1
+
+            if self.trial_counter > 5:
+                # exit the program after 10 trials
+                exit()
+
             # Sample from the placement initializer for all objects
             object_placements_place = self.placement_initializer.sample()
 
@@ -400,7 +418,9 @@ class ConstrainedReorient(SingleArmEnv):
         """
         # Run superclass method first
         # TODO Rachel change this to vis_settings=vis_settings if you want to visualize sites again
-        super().visualize(vis_settings={vis: False for vis in self._visualizations})
+        # super().visualize(vis_settings=vis_settings)
+        super().visualize(vis_settings={vis: True for vis in self._visualizations})
+        # super().visualize(vis_settings={vis: False for vis in self._visualizations})
 
     def _check_success(self):
         """
@@ -424,26 +444,25 @@ class ConstrainedReorient(SingleArmEnv):
 
         xy_margin = 0.03
         z_margin = 0.001
-
         placed_bool = np.linalg.norm(np.abs(place_object_pos[2]) - 1.5597844891596204) < z_margin
 
         positioned_bool = (np.linalg.norm(place_object_pos[:2] - goal_object_pos[:2]) <= xy_margin)
 
-        # see how long it took to succeed
+        elapsed_time = time.time() - self.start_time
 
+        # trial finished
         if positioned_bool and upright_bool and placed_bool:
-            elapsed_time = time.time() - self.start_time
             print("Success! Time: {}".format(elapsed_time))
-            # reset
-            self._reset_internal()
-            return 2, elapsed_time
+            return True, 2, elapsed_time, self.trial_counter - 1
         
-        if positioned_bool:
-            return 1, None
+        # object positioned but not placed
+        elif positioned_bool:
+            return False, 1, elapsed_time, self.trial_counter - 1
+        
+        # failed
+        elif (elapsed_time > 60) or (place_object_pos[2] < 1):
+            return True, 0, elapsed_time, self.trial_counter - 1 # this is a failure
         
         else:
-            # print("positioned_bool: ", positioned_bool)
-            # print("upright_bool: ", upright_bool)
-            # print("z_height: ", np.abs(place_object_pos[2]))
-            return 0, None
+            return False, 0, elapsed_time, self.trial_counter - 1
 

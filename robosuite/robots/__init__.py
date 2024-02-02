@@ -16,6 +16,8 @@ ROBOT_CLASS_MAPPING = {
     "Sawyer": SingleArm,
     "UR5e": SingleArm,
     "PandaWrist": SingleArm,
+    "PandaSSLIM": SingleArm,
+    "PandaSSLIMOG": SingleArm,
     "Flexiv": SingleArm,
 }
 

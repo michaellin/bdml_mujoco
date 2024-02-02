@@ -119,13 +119,22 @@ class SpaceMouse(Device):
         rot_sensitivity (float): Magnitude of scale input rotation commands scaling
     """
 
-    def __init__(self, vendor_id=9583, product_id=50735, pos_sensitivity=1.0, rot_sensitivity=1.0, use_robotiq=False):
-        print("Opening SpaceMouse device")
+    def __init__(self, vendor_id=9583, product_id=50735, pos_sensitivity=0.8, rot_sensitivity=1.0, use_robotiq=False, drawer=False):
+        # print("Opening SpaceMouse device")
         rospy.init_node("spacemouse_listener", anonymous=True)
         rospy.Subscriber("spacenav/joy", Joy, self._get_spacemouse_commands)
 
         # turn this value to true if using Robotiq gripper, false if using SSLIM
         self.use_robotiq = use_robotiq
+
+        self.symmetric = True
+
+        self.use_ori = True
+
+        self.drawer = drawer
+
+        self.alpha = 0.04
+        self.alpha2 = 0.02
 
         self.pos_sensitivity = pos_sensitivity
         self.rot_sensitivity = rot_sensitivity
@@ -139,7 +148,11 @@ class SpaceMouse(Device):
         else:
             self.dq = np.zeros(7)
 
-        self.thumb_pos = 1.0
+        self.thumb_pos = 0.5
+        # if self.drawer:
+        #     self.thumb_pos = 0.5
+        # else:
+        #     self.thumb_pos = 1
         self.pinch = False
         self.link_thumb = True
 
@@ -156,7 +169,7 @@ class SpaceMouse(Device):
         self.last_button_state = [0, 0]
         self.sslim_grasps = np.zeros([5,7])
         # left full grasp
-        self.sslim_grasps[0,:] = np.array([2*np.pi, 2*np.pi, 2*np.pi, 2*np.pi, 1, 2*np.pi, 2*np.pi])
+        self.sslim_grasps[0,:] = np.array([4*np.pi, 4*np.pi, 4*np.pi, 4*np.pi, 1, 4*np.pi, 4*np.pi])
         # left pre-grasp
         self.sslim_grasps[1,:] = np.array([np.pi/8, np.pi/10, np.pi/8, np.pi/10, 1, np.pi/8, np.pi/10])
         # open
@@ -164,7 +177,7 @@ class SpaceMouse(Device):
         # right pre-grasp
         self.sslim_grasps[3,:] = np.array([-np.pi/8, -np.pi/10, -np.pi/8, -np.pi/10, 1, -np.pi/8, -np.pi/10])
         # right full grasp
-        self.sslim_grasps[4,:] = np.array([-2*np.pi, -2*np.pi, -2*np.pi, -2*np.pi, 1, -2*np.pi, -2*np.pi])
+        self.sslim_grasps[4,:] = np.array([-4*np.pi, -4*np.pi, -4*np.pi, -4*np.pi, 1, -4*np.pi, -4*np.pi])
 
         self.sslim_state = 2 # open by default
 
@@ -180,20 +193,24 @@ class SpaceMouse(Device):
             char += " " * (30 - len(char))
             print("{}\t{}".format(char, info))
 
-        print("")
-        print_command("Control", "Command")
-        print_command("Right button", "reset simulation")
-        print_command("Left button (hold)", "close gripper")
-        print_command("Move mouse laterally", "move arm horizontally in x-y plane")
-        print_command("Move mouse vertically", "move arm vertically")
-        print_command("Twist mouse about an axis", "rotate arm about a corresponding axis")
-        print_command("ESC", "quit")
-        print("")
+        # print("")
+        # print_command("Control", "Command")
+        # print_command("Right button", "reset simulation")
+        # print_command("Left button (hold)", "close gripper")
+        # print_command("Move mouse laterally", "move arm horizontally in x-y plane")
+        # print_command("Move mouse vertically", "move arm vertically")
+        # print_command("Twist mouse about an axis", "rotate arm about a corresponding axis")
+        # print_command("ESC", "quit")
+        # print("")
 
     def _reset_internal_state(self):
         """
         Resets internal state of controller, except for the reset signal.
         """
+
+        self._reset_state = 1
+        self._enabled = False
+
         self.rotation = np.array([[-1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, -1.0]])
         # Reset 6-DOF variables
         self.x, self.y, self.z = 0, 0, 0
@@ -203,21 +220,38 @@ class SpaceMouse(Device):
         # Reset grasp
         self.single_click_and_hold = False
         if self.use_robotiq:
-            self.dq = [0]
+            self.dq = [-1]
         else:
-            self.sslim_state = 2
+            # self.sslim_state = 2
+            self.dq = np.zeros(7)
 
     def _get_spacemouse_commands(self, data):
         self._axes = data.axes
         self.last_button_state = self._buttons
         self._buttons = data.buttons
 
-        self.y = self._axes[1] 
-        self.x = self._axes[0] 
-        self.z = self._axes[2]
-        self.roll = self._axes[4]
-        self.pitch = self._axes[3]
-        self.yaw = self._axes[5] * -1
+        if self.drawer:
+            self.y = -self._axes[0] 
+            self.x = self._axes[1] 
+            self.z = self._axes[2]
+        else:
+            self.y = self._axes[1] 
+            self.x = self._axes[0] 
+            self.z = self._axes[2]
+
+        if self.use_ori:
+            if self.drawer:
+                self.roll = self._axes[3] * -1
+                self.pitch = self._axes[4] 
+                self.yaw = self._axes[5] * -1
+            else:
+                self.roll = self._axes[4]
+                self.pitch = self._axes[3]
+                self.yaw = self._axes[5] * -1
+        else:
+            self.roll = 0
+            self.pitch = 0
+            self.yaw = self._axes[5] * -1
         self._control = [
             self.x,
             self.y,
@@ -272,9 +306,10 @@ class SpaceMouse(Device):
                 self.dq[6] = self.dq[5] * (self.alpha2 / self.alpha)
 
         elif key == glfw.KEY_B:
-            self._reset_state = 1
-            self._enabled = False
             self._reset_internal_state()
+
+        elif key == glfw.KEY_DELETE:
+            raise ValueError("Exit training!")
 
     def start_control(self):
         """
@@ -309,57 +344,62 @@ class SpaceMouse(Device):
             if self._buttons[1]:
                 self.dq[0] = max(-1, self.dq[0] - 0.1)
         else:
-            # if  we have a new button 0 press
-            if self._buttons[0] == 1:
-                # check if enough time has passed
-                t0 = time.time()
-                if t0 - self.last_clicked[0] > 0.1:
-                    self.sslim_state = max(0, self.sslim_state - 1)
+            # # if  we have a new button 0 press
+            # if self._buttons[0] == 1:
+            #     # check if enough time has passed
+            #     t0 = time.time()
+            #     if t0 - self.last_clicked[0] > 0.1:
+            #         self.sslim_state = max(0, self.sslim_state - 1)
 
-                self.last_clicked[0] = t0
+            #     self.last_clicked[0] = t0
 
-            if self._buttons[1] == 1:
-                t1 = time.time()
-                if t1 - self.last_clicked[1] > 0.1:
-                    self.sslim_state = min(4, self.sslim_state + 1)
-                self.last_clicked[1] = t1
+            # if self._buttons[1] == 1:
+            #     t1 = time.time()
+            #     if t1 - self.last_clicked[1] > 0.1:
+            #         self.sslim_state = min(4, self.sslim_state + 1)
+            #     self.last_clicked[1] = t1
 
-            # command the joint angles corresponding to the desired state
-            self.dq = self.sslim_grasps[self.sslim_state,:]
+            # # command the joint angles corresponding to the desired state
+            # self.dq = self.sslim_grasps[self.sslim_state,:]
+
+            # if self.thumb_pos == 1:
+            #     self.dq[4] = 1
+            # else:
+            #     self.dq[4] = -1
 
             # print(self.sslim_state)
 
 
                 
-            # self.alpha = 0.1
-            # self.alpha2 = 0.08
-            # if self._buttons[0]:
-            #     if self.dq[0] <= 1.5:
-            #         self.dq[0] += self.alpha * self.pos_sensitivity
-            #         self.dq[2] += self.alpha * self.pos_sensitivity
-            #         if self.link_thumb:
-            #             self.dq[5] += self.alpha * self.pos_sensitivity
+            if self._buttons[0]:
+                if self.dq[0] <= 1.5:
+                    self.dq[0] += self.alpha * self.pos_sensitivity
+                    self.dq[2] += self.alpha * self.pos_sensitivity
+                    if self.link_thumb:
+                        self.dq[5] += self.alpha * self.pos_sensitivity
 
-            #         if not self.pinch:
-            #             self.dq[1] += self.alpha2 * self.pos_sensitivity
-            #             self.dq[3] += self.alpha2 * self.pos_sensitivity
-            #             if self.link_thumb:
-            #                 self.dq[6] += self.alpha2 * self.pos_sensitivity
+                    if not self.pinch:
+                        self.dq[1] += self.alpha2 * self.pos_sensitivity
+                        self.dq[3] += self.alpha2 * self.pos_sensitivity
+                        if self.link_thumb:
+                            self.dq[6] += self.alpha2 * self.pos_sensitivity
 
-            # if self._buttons[1]:
-            #     if self.dq[0] >= -1.5:
-            #         self.dq[0] -= self.alpha * self.pos_sensitivity
-            #         self.dq[2] -= self.alpha * self.pos_sensitivity
-            #         if self.link_thumb:
-            #             self.dq[5] -= self.alpha * self.pos_sensitivity
+            if self._buttons[1]:
+                if self.dq[0] >= -1.5:
+                    self.dq[0] -= self.alpha * self.pos_sensitivity
+                    self.dq[2] -= self.alpha * self.pos_sensitivity
+                    if self.link_thumb:
+                        self.dq[5] -= self.alpha * self.pos_sensitivity
 
-            #         if not self.pinch:
-            #             self.dq[1] -= self.alpha2 * self.pos_sensitivity
-            #             self.dq[3] -= self.alpha2 * self.pos_sensitivity
-            #             if self.link_thumb:
-            #                 self.dq[6] -= self.alpha2 * self.pos_sensitivity
+                    if not self.pinch:
+                        self.dq[1] -= self.alpha2 * self.pos_sensitivity
+                        self.dq[3] -= self.alpha2 * self.pos_sensitivity
+                        if self.link_thumb:
+                            self.dq[6] -= self.alpha2 * self.pos_sensitivity
 
-            # self.dq[4] = self.thumb_pos
+            if not self.symmetric:
+                self.dq = np.maximum(self.dq, np.zeros_like(self.dq))
+            self.dq[4] = self.thumb_pos
 
         return dict(
             dpos=dpos,

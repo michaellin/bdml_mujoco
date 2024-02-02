@@ -23,7 +23,8 @@ class Robotiq85GripperBase(GripperModel):
 
     @property
     def init_qpos(self):
-        return np.array([-0.026, -0.267, -0.200, -0.026, -0.267, -0.200])
+        # return np.array([-0.026, -0.267, -0.200, -0.026, -0.267, -0.200])
+        return np.array([-0.028, -0.276, -0.203, -0.028, -0.276, -0.203])
 
     @property
     def _important_geoms(self):
@@ -91,7 +92,8 @@ class Robotiq4Wrist(GripperModel):
 
     @property
     def init_qpos(self):
-        return np.array([-0.026, -0.267, -0.200, -0.026, -0.267, -0.200])
+        # return np.array([-0.026, -0.267, -0.200, -0.026, -0.267, -0.200])
+        return np.array([-0.028, -0.276, -0.203, -0.028, -0.276, -0.203])
 
     @property
     def _important_geoms(self):

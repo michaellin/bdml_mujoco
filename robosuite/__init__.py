@@ -3,7 +3,9 @@ from robosuite.environments.base import make
 # Manipulation environments
 from robosuite.environments.manipulation.lift import Lift
 from robosuite.environments.manipulation.constrained_reorient import ConstrainedReorient
+from robosuite.environments.manipulation.drawer_pick import DrawerPick
 from robosuite.environments.manipulation.train import Train
+from robosuite.environments.manipulation.bookshelf import Bookshelf
 from robosuite.environments.manipulation.reach import Reach
 from robosuite.environments.manipulation.stack import Stack
 from robosuite.environments.manipulation.nut_assembly import NutAssembly

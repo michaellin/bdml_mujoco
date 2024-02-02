@@ -13,7 +13,7 @@ Keyboard:
 
 SpaceMouse:
 
-    We use the SpaceMouse 3D mouse to control the end-effector of the robot.
+    We use the SpaceMouse 3Dimport copy  mouse to control the end-effector of the robot.
     The mouse provides 6-DoF control commands. The commands are mapped to joint
     velocities through an inverse kinematics solver from Bullet physics.
 
@@ -93,8 +93,9 @@ Examples:
 
 
 """
-
+import csv
 import argparse
+import os
 
 import numpy as np
 import time
@@ -116,15 +117,29 @@ def euler2mat(euler):
     return r.as_matrix()
 
 def quat2mat(quat):
-    r = Rotation.from_quat(quat)
+    quat = np.array([quat[1], quat[2], quat[3], quat[0]])
+    r =  Rotation.from_quat(quat)
     return r.as_matrix()
 
+def mat2euler(mat):
+    r = Rotation.from_matrix(mat)
+    return r.as_euler('xyz', degrees=False)
+
+def save_data(file_path, task, trial_number, success, success_time, disturbance=None):
+    with open(file_path, 'a', newline='') as file:
+        writer = csv.writer(file)
+        
+        if task == "ConstrainedReorient":
+            writer.writerow([trial_number, success, success_time] + ["", "", "", ""])
+        
+        elif task == "Bookshelf":
+            writer.writerow([trial_number, "", "", success, success_time, disturbance])
 
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--environment", type=str, default="SingleArmEnv", help="Name of the environment to run")
-    parser.add_argument("--robots", nargs="+", type=str, default="PandaWrist", help="Which robot(s) to use in the env")
+    parser.add_argument("--environment", type=str, default="ConstrainedReorient", help="Name of the environment to run")
+    parser.add_argument("--robots", nargs="+", type=str, default="PandaSSLIM", help="Which robot(s) to use in the env")
     parser.add_argument(
         "--config", type=str, default="single-arm-opposed", help="Specified environment configuration if necessary"
     )
@@ -132,7 +147,7 @@ if __name__ == "__main__":
     parser.add_argument("--switch-on-grasp", action="store_true", help="Switch gripper control on gripper action")
     parser.add_argument("--toggle-  camera-on-grasp", action="store_true", help="Switch camera angle on gripper action")
     parser.add_argument("--controller", type=str, default="osc", help="Choice of controller. Can be 'ik' or 'osc'")
-    parser.add_argument("--device", type=str, default="spacemouse")
+    parser.add_argument("--device", type=str, default="oculus")
     parser.add_argument("--pos-sensitivity", type=float, default=1.0, help="How much to scale position user inputs")
     parser.add_argument("--rot-sensitivity", type=float, default=1.0, help="How much to scale rotation user inputs")
     parser.add_argument("--directory", type=str, default="/home/rthom/Documents/Research/TRI/sslim_user_study_data")
@@ -196,12 +211,34 @@ if __name__ == "__main__":
         env.viewer.add_keyrepeat_callback("any", device.on_press)
     elif args.device == "spacemouse":
         from robosuite.devices import SpaceMouse
-        use_robotiq = False if "PandaWrist" in args.robots else True
-        device = SpaceMouse(pos_sensitivity=args.pos_sensitivity, rot_sensitivity=args.rot_sensitivity, use_robotiq=use_robotiq)
+        use_robotiq = False if ("PandaSSLIM" in args.robots or "PandaSSLIMOG" in args.robots) else True
+        drawer = False if ("Drawer" not in args.environment) else True
+        device = SpaceMouse(pos_sensitivity=args.pos_sensitivity, rot_sensitivity=args.rot_sensitivity, use_robotiq=use_robotiq, drawer=drawer)
+        env.viewer.add_keypress_callback("any", device.on_press)
+        env.viewer.add_keyrepeat_callback("any", device.on_press)
+
+    elif args.device == "oculus":
+        from robosuite.devices import Oculus
+        use_robotiq = False if ("PandaSSLIM" in args.robots or "PandaSSLIMOG" in args.robots) else True
+        drawer = False if ("Drawer" not in args.environment) else True
+        device = Oculus(pos_sensitivity=args.pos_sensitivity, rot_sensitivity=args.rot_sensitivity, use_robotiq=use_robotiq, drawer=drawer)
         env.viewer.add_keypress_callback("any", device.on_press)
         env.viewer.add_keyrepeat_callback("any", device.on_press)
     else:
         raise Exception("Invalid device choice: choose either 'keyboard' or 'spacemouse'.")
+
+
+
+    # Set up a CSV file to save the data
+    subject_name = "Test"
+    file_path = "/home/rthom/Documents/Research/TRI/bdml_mujoco/robosuite/data/" + subject_name + ".csv"
+
+    if not os.path.exists(file_path):
+        # Column labels
+        column_labels = ["Trial Number", "Constrained Reorient Success", "Constrained Reorient Time", "Shelf Pick Success", "Shelf Pick Time", "Shelf Pick Disturbance"]
+        with open(file_path, 'a', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerow(column_labels)
 
     while True:
         # Reset the environment
@@ -267,7 +304,7 @@ if __name__ == "__main__":
             # Step through the simulation and render
             obs, reward, done, info = env.step(action)
 
-            links2check = ["robot0_g0_col", "robot0_g1_col", "robot0_g2_col", "robot0_g3_col", "robot0_g4_col", "robot0_g5_col", "robot0_link7_collision", "robot0_link6_collision", "robot0_link5_collision"]
+            links2check = ["robot0_g0_col", "robot0_g1_col", "robot0_g2_col", "robot0_g3_col", "robot0_g4_col", "robot0_g5_col", "robot0_link7_collision", "robot0_link6_collision", "gripper0_hand_collision"]
             for i in range(env.sim.data.ncon):
                 con = env.sim.data.contact[i]
                 bool1 = env.sim.model.geom_id2name(con.geom1) in links2check and env.sim.model.geom_id2name(con.geom2) not in links2check
@@ -277,30 +314,60 @@ if __name__ == "__main__":
                     env.viewer.viewer.add_marker(type=const.GEOM_SPHERE, pos=contact_pos, size=np.array([0.02, 0.02, 0.02]), label='contact', rgba=[0.592, 0.863, 1, .4])
 
 
-            if "ConstrainedReorient" in args.environment:
-                success, success_time = env._check_success()
-                if success == 2:
-                    env.viewer.viewer.add_marker(type=const.GEOM_ARROW, pos=env.goal_pos, mat=euler2mat([np.pi, 0, 0]), label='', size=[0.01, 0.01, 0.6], rgba=[0, 1, 0, 1])
-                elif success == 1:
-                    env.viewer.viewer.add_marker(type=const.GEOM_ARROW, pos=env.goal_pos, mat=euler2mat([np.pi, 0, 0]), label='', size=[0.01, 0.01, 0.6], rgba=[0.902, .616, .094, .6])
-                else:
-                    env.viewer.viewer.add_marker(type=const.GEOM_ARROW, pos=env.goal_pos, mat=euler2mat([np.pi, 0, 0]), label='', size=[0.01, 0.01, 0.6], rgba=[1, 0, 0, .4])
+            # if "ConstrainedReorient" in args.environment:
+            #     success, success_time, trial_number = env._check_success()
+            #     if success == 2: # True success
+            #         env.viewer.viewer.add_marker(type=const.GEOM_ARROW, pos=env.goal_pos, mat=euler2mat([np.pi, 0, 0]), label='', size=[0.01, 0.01, 0.6], rgba=[0, 1, 0, 1])
+            #         save_data(file_path, args.environment, trial_number, success, success_time)
+            #         env.render()
+            #         time.sleep(3)
+            #         device._reset_internal_state()
+            #     elif success == 1:
+            #         env.viewer.viewer.add_marker(type=const.GEOM_ARROW, pos=env.goal_pos, mat=euler2mat([np.pi, 0, 0]), label='', size=[0.01, 0.01, 0.6], rgba=[0.902, .616, .094, .6])
+            #     else:
+            #         env.viewer.viewer.add_marker(type=const.GEOM_ARROW, pos=env.goal_pos, mat=euler2mat([np.pi, 0, 0]), label='', size=[0.01, 0.01, 0.6], rgba=[1, 0, 0, .4])
 
-            if "Lift" in args.environment:
-                success, success_time = env._check_success()
-                if success:
-                    env.viewer.viewer.add_marker(type=const.GEOM_LABEL, pos=env.goal_object_pos, label='Success!', size=[1,1,1], rgba=[0, 0, 1, 1])
-                    env.render()
-                    time.sleep(3)
-                    device._reset_internal_state()
-                    env._reset_internal()
+            # elif "Lift" in args.environment:
+            #     success, success_time, disturbance = env._check_success()
+            #     if success: 
+            #         env.viewer.viewer.add_marker(type=const.GEOM_LABEL, pos=env.goal_object_pos, label='Success!', size=[1,1,1], rgba=[0, 0, 1, 1])
+            #         env.render()
+            #         time.sleep(3)
+            #         device._reset_internal_state()
 
-            J_pos = np.array(env.sim.data.get_site_jacp('gripper0_grip_site').reshape((3, -1))[:, [0,1,2,3,4,5,6,7,8]])
-            J_ori = np.array(env.sim.data.get_site_jacr('gripper0_grip_site').reshape((3, -1))[:, [0,1,2,3,4,5,6,7,8]])
-            w, v, w2, v2 = calculateManipulabilityEllipsoid(J_pos, J_ori)
-            w2 = w2 / 5 
-            # print(env.sim.data.get_site_xpos('gripper0_grip_site'))
-            env.viewer.viewer.add_marker(type=const.GEOM_ELLIPSOID, pos=env.sim.data.get_site_xpos('gripper0_grip_site'), mat=v, size=np.array([w[0], w[1], w[2]]), label='manipulability', rgba=[0.592, 0.863, 1, .4])
+            # elif "Bookshelf" in args.environment:
+            #     success, success_time, disturbance, trial_number = env._check_success()
+            #     if success: 
+            #         env.viewer.viewer.add_marker(type=const.GEOM_LABEL, pos=env.goal_object_pos, label='Success!', size=[1,1,1], rgba=[0, 0, 1, 1])
+            #         save_data(file_path, args.environment, trial_number, success, success_time, disturbance)
+            #         env.render()
+            #         time.sleep(3)
+            #         device._reset_internal_state()
+
+            # elif "DrawerPick" in args.environment:
+            #     success, success_time, trial_number = env._check_success()
+            #     if success: 
+            #         env.viewer.viewer.add_marker(type=const.GEOM_LABEL, pos=env.place_object_pos, label='Success!', size=[1,1,1], rgba=[0, 0, 1, 1])
+            #         save_data(file_path, args.environment, trial_number, success, success_time)
+            #         env.render()
+            #         time.sleep(3)
+            #         device._reset_internal_state()
+
+            # elif "Train" in args.environment:
+            #     rot = quat2mat(env.place_object_quat)
+            #     if env.rot_grasp:
+            #         rot = np.dot(rot, euler2mat([0, -np.pi / 2, 0]))
+            #     env.viewer.viewer.add_marker(type=const.GEOM_ARROW, pos=env.place_object_pos, mat=rot, label='', size=[0.01, 0.01, 0.6], rgba=[0, 1, 0, 1])
+                
+                   
+                    
+
+                # J_pos = np.array(env.sim.data.get_site_jacp('gripper0_grip_site').reshape((3, -1))[:, [0,1,2,3,4,5,6,7,8]])
+                # J_ori = np.array(env.sim.data.get_site_jacr('gripper0_grip_site').reshape((3, -1))[:, [0,1,2,3,4,5,6,7,8]])
+                # w, v, w2, v2 = calculateManipulabilityEllipsoid(J_pos, J_ori)
+                # w2 = w2 / 5 
+                # # print(env.sim.data.get_site_xpos('gripper0_grip_site'))
+                # env.viewer.viewer.add_marker(type=const.GEOM_ELLIPSOID, pos=env.sim.data.get_site_xpos('gripper0_grip_site'), mat=v, size=np.array([w[0], w[1], w[2]]), label='manipulability', rgba=[0.592, 0.863, 1, .4])
             
 
             env.render()    

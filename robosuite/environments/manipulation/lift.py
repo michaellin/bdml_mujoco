@@ -141,7 +141,7 @@ class Lift(SingleArmEnv):
         controller_configs=None,
         gripper_types="default",
         initialization_noise="default",
-        table_full_size=(0.4, 0.54, 0.07),
+        table_full_size=(0.34, 0.58, 0.07),
         table_friction=(0.1, 5e-3, 1e-4),
         use_camera_obs=True,
         use_object_obs=True,
@@ -181,6 +181,17 @@ class Lift(SingleArmEnv):
         # object placement initializer
         self.placement_initializer = placement_initializer
         self.placement_initializer2 = None
+
+        # setup a counter for random seeds
+        self.seed_counter = 0
+        # self.seed_options = np.array([22, 1, 57, 7])  
+        self.seed_options = np.array([22, 1, 57, 7])
+        np.random.shuffle(self.seed_options)
+        # insert 2 zeros at the start of seed_options
+        self.seed_options_w_zeros = np.array([0,0,0,22, 1, 57, 7])
+
+        self.flip = False
+
 
         super().__init__(
             robots=robots,
@@ -289,62 +300,67 @@ class Lift(SingleArmEnv):
             mat_attrib=mat_attrib,
         )
 
-        self.fixed = [CylinderObject(
-            name=f"fixed_cylinder{x}",
-            size=[0.025, 0.055],
-            rgba=[1, 0, 0, 1],
-            material=redwood,
-            density=100000,
-        ) for x in range(1)]
-
-        self.fixed2 = [BoxObject(
-            name=f"fixed_box{x}",
-            size=[0.025, 0.025, 0.055],
-            rgba=[1, 0, 0, 1],
-            material=redwood,
-            density=100000,
-        ) for x in range(2)]
-
-        self.fixed += self.fixed2
-
-        # self.fixed.append(BoxObject(
-        #     name=f"cube_goal",
-        #     size=[0.025, 0.025, 0.055],
-        #     rgba=[0, 1, 0, 1],
-        #     material=greenwood,
-        # ))
 
         self.movable = [CylinderObject(
-            name=f"movable_cylinder{x}",
-            size=[0.025, 0.055],
+            name=f"tall_cyl{x}",
+            size=[0.036, 0.065],
             rgba=[1, 0, 0, 1],
             material=redwood,
-        ) for x in range(3)]
+        ) for x in range(2)]
 
-        self.movable2 = [BoxObject(
-            name=f"movable_box{x}",
-            size=[0.025, 0.025, 0.055],
+        self.movable2 = [CylinderObject(
+            name=f"short_cyl{x}",
+            size=[0.036, 0.0365],
             rgba=[1, 0, 0, 1],
             material=redwood,
-        ) for x in range(3)]
+        ) for x in range(1)]
 
-        self.movable += self.movable2
+        self.movable3 = [BoxObject(
+            name=f"tall_box{x}",
+            size=[0.036, 0.036, 0.075],
+            rgba=[1, 0, 0, 1],
+            material=redwood,
+        ) for x in range(1)]
+
+        self.movable4 = [BoxObject(
+            name=f"short_box{x}",
+            size=[0.036, 0.036, 0.045],
+            rgba=[1, 0, 0, 1],
+            material=redwood,
+        ) for x in range(2)]
+
+
+        self.movable += self.movable2 + self.movable3 + self.movable4
         
 
-        self.goal_object = [BoxObject(
+        self.goal_object = [CylinderObject(
             name=f"goal_object",
-            size=[0.025, 0.025, 0.055],
+            size=[0.036, 0.0365],
             rgba=[0, 1, 0, 1],
             material=greenwood,
         )]
 
-       
+        self.initial_obstacle_positions = np.zeros((3, len(self.movable)))
 
         # Create placement initializer
         self.placement_initializer = UniformRandomSampler(
             name="ObjectSampler",
-            mujoco_objects=self.fixed + self.movable + self.goal_object,
-            x_range=[-0.1, 0.1],
+            mujoco_objects= self.movable,
+            x_range=[-0.12, 0.03],
+            y_range=[-.22, 0.22],
+            rotation=[0, np.pi/8, np.pi/6, np.pi/4, np.pi/3, np.pi/2, 3*np.pi/4, 5*np.pi/6, 7*np.pi/8, np.pi],
+            rotation_axis='z', # 'z
+            ensure_object_boundary_in_range=False,
+            ensure_valid_placement=True,
+            reference_pos=self.table_offset,
+            z_offset=0.01,
+        )
+
+          # Create placement initializer
+        self.goal_placement_initializer = UniformRandomSampler(
+            name="ObjectSampler",
+            mujoco_objects=self.goal_object,
+            x_range=[0.05, 0.06],
             y_range=[-.2, 0.2],
             rotation=[0, np.pi/8, np.pi/6, np.pi/4, np.pi/3, np.pi/2, 3*np.pi/4, 5*np.pi/6, 7*np.pi/8, np.pi],
             rotation_axis='z', # 'z
@@ -354,11 +370,12 @@ class Lift(SingleArmEnv):
             z_offset=0.01,
         )
 
+
         # task includes arena, robot, and objects of interest
         self.model = ManipulationTask(
             mujoco_arena=mujoco_arena,
             mujoco_robots=[robot.robot_model for robot in self.robots],
-            mujoco_objects=self.fixed + self.movable + self.goal_object,
+            mujoco_objects=self.movable + self.goal_object,
         )
 
     def _setup_references(self):
@@ -371,6 +388,11 @@ class Lift(SingleArmEnv):
 
         # Additional object references from this env
         self.goal_object_body_id = self.sim.model.body_name2id(self.goal_object[0].root_body)
+        self.obstacle_ids = []
+        for i in range(len(self.movable)):
+            self.obstacle_ids.append(self.sim.model.body_name2id(self.movable[i].root_body))
+
+            
 
     def _setup_observables(self):
         """
@@ -392,14 +414,41 @@ class Lift(SingleArmEnv):
         # start a timer to see how long it takes to succeed at the task
         self.start_time = time.time()
 
+
         # Reset all object positions using initializer sampler if we're not directly loading from an xml
         if not self.deterministic_reset:
-
+            if not self.flip:
+                np.random.seed(self.seed_options_w_zeros[self.seed_counter])
+                print(self.seed_options_w_zeros[self.seed_counter])
+            else: 
+                np.random.seed(self.seed_options[self.seed_counter])
+                print(self.seed_options[self.seed_counter])
+            self.seed_counter += 1
+            if (self.seed_counter > len(self.seed_options_w_zeros) - 1) and not self.flip:
+                self.flip = True
+                np.random.shuffle(self.seed_options)
+                self.seed_counter = 0
             # Sample from the placement initializer for all objects
             object_placements = self.placement_initializer.sample()
 
+            count = 0
             # Loop through all objects and reset their positions
             for obj_pos, obj_quat, obj in object_placements.values():
+                if self.flip:
+                    obj_pos = np.array(obj_pos)
+                    obj_pos[1] = -obj_pos[1]
+                self.sim.data.set_joint_qpos(obj.joints[0], np.concatenate([np.array(obj_pos), np.array(obj_quat)]))
+                self.initial_obstacle_positions[:,count] = obj_pos
+                count += 1
+
+            # Sample from the placement initializer for all objects
+            goal_object_placements = self.goal_placement_initializer.sample()
+
+            # Loop through all objects and reset their positions
+            for obj_pos, obj_quat, obj in goal_object_placements.values():
+                if self.flip:
+                    obj_pos = np.array(obj_pos)
+                    obj_pos[1] = -obj_pos[1]
                 self.sim.data.set_joint_qpos(obj.joints[0], np.concatenate([np.array(obj_pos), np.array(obj_quat)]))
 
 
@@ -417,7 +466,7 @@ class Lift(SingleArmEnv):
 
         # Color the gripper visualization site according to its distance to the cube
         if vis_settings["grippers"]:
-            self._visualize_gripper_to_target(gripper=self.robots[0].gripper, target=self.fixed[0])
+            self._visualize_gripper_to_target(gripper=self.robots[0].gripper, target=self.goal_object[0])
 
     def _check_success(self):
         """
@@ -437,7 +486,18 @@ class Lift(SingleArmEnv):
         
         if lifted_bool and removed_bool:
             elapsed_time = time.time() - self.start_time
+            total_disturbance = self._calculate_disturbance()
             print("Success! Time: {}".format(elapsed_time))
-            return True, elapsed_time
+            print("Disturbance: {}".format(total_disturbance))
+            return True, elapsed_time, total_disturbance
         else:
-            return False, None
+            return False, None, None
+        
+    def _calculate_disturbance(self):
+        disturbance = 0
+        for i in range(len(self.movable)):
+            pos = self.sim.data.body_xpos[self.obstacle_ids[i]]
+            initial_pos = self.initial_obstacle_positions[:,i]
+            disturbance += np.linalg.norm(pos - initial_pos)
+        return disturbance
+

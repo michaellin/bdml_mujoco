@@ -1,0 +1,6 @@
+subject_name,task,robot,trial,success,success_time,disturbance
+test_oculus,Bookshelf,PandaWrist,0,False,15.033756494522095,0.29831591990968176
+test_oculus,Bookshelf,PandaWrist,1,True,26.08263325691223,0.2876501508273905
+test_oculus,Bookshelf,PandaSSLIM,0,False,23.395822048187256,0.17093292793612327
+test_oculus,Bookshelf,PandaSSLIM,1,True,22.325271129608154,0.11321713742795655
+test_oculus,Bookshelf,PandaSSLIM,2,True,18.798832416534424,0.09454688680151416

@@ -24,13 +24,13 @@ from reader import OculusReader
 
 def mat2euler(mat):
     r = Rotation.from_matrix(mat)
-    return r.as_euler('XYZ', degrees=False)
+    return r.as_euler('xyz', degrees=True)
 
 class OculusPolicy(): 
     """ Runs policy using Oculus controller commands"""
     def __init__(self):
         self.oculus_reader = OculusReader()
-        self.demo_started = False 
+        self.demo = False
 
     def get_oculus_state(self):
         poses, buttons = self.oculus_reader.get_transformations_and_buttons()
@@ -51,16 +51,22 @@ class OculusPolicy():
         poses, buttons = self.get_oculus_state()
 
         if buttons["RG"]: 
-            if not self.demo_started: 
-                self.demo_started = True 
-                print("Demo started")
             self.action_pos, self.action_ori, self.gripper_action = self.get_oculus_action(poses, buttons)
+            if not self.demo:
+                self.demo = True
         else:
             self.robot_pos_origin = robot_pos_origin 
             self.robot_ori_origin = robot_ori_origin
             self.oculus_pos_origin, self.oculus_ori_origin = self.get_oculus_pose(poses)
-            self.action_pos = [0,0,0]
-            self.action_ori = np.eye(3)
+            if self.demo:
+                self.demo = False
+        # print("oculus_ori_origin", self.oculus_ori_origin)
+            
+
+            
+            # print(self.oculus_pos_origin, self.oculus_ori_origin)
+            # self.action_pos = [0,0,0]
+            # self.action_ori = np.eye(3)
         
         return self.action_pos, self.action_ori, self.gripper_action
 
@@ -70,9 +76,20 @@ class OculusPolicy():
         indices = [2,0,1]
         action_pos = oculus_pos[indices] - self.oculus_pos_origin[indices] + self.robot_pos_origin
         oculus_ori = copy.deepcopy(poses['r'][:3,:3])
+
+        
         conv_mat = np.array([[0, 0, 1], [1, 0, 0], [0, 1, 0]])
+        if not self.demo:
+            # print("oculus_ori", oculus_ori)
+            # print("oculus_ori_origin", self.oculus_ori_origin)
+            # print("robot_ori_origin", self.robot_ori_origin)
+            pass
         action_ori = (conv_mat @ oculus_ori) @ (conv_mat @ self.oculus_ori_origin).T @ self.robot_ori_origin
-        gripper_action = buttons['rightTrig'][0]
+        gripper_action = np.array([0,0])
+        if buttons["A"]:
+            gripper_action[0] = 1
+        if buttons["B"]:
+            gripper_action[1] = 1
         return action_pos, action_ori, gripper_action
 
     @staticmethod
@@ -84,12 +101,14 @@ class OculusPolicy():
     
 class Oculus(Device):
 
-    def __init__(self, pos_sensitivity=1.0, rot_sensitivity=1.0, use_robotiq=False, drawer=False):
-
+    def __init__(self, env, pos_sensitivity=1.0, rot_sensitivity=1.0, use_robotiq=False, drawer=False):
+        self.env = env
         # rospy.init_node("spacemouse_listener", anonymous=True)
         # rospy.Subscriber("spacenav/joy", Joy, self._get_spacemouse_commands)
         self.oculus_policy = OculusPolicy()
-        self.oculus_policy.initialize_policy(np.array([0,0,0]), np.eye(3))
+        self.init_pos = np.array(env.sim.data.get_site_xpos('gripper0_grip_site'))
+        self.init_ori = np.array(env.sim.data.get_site_xmat('gripper0_grip_site'))
+        self.oculus_policy.initialize_policy(self.init_pos, self.init_ori)
 
 
         # turn this value to true if using Robotiq gripper, false if using SSLIM
@@ -123,7 +142,7 @@ class Oculus(Device):
 
         self._control = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
         self._reset_state = 0
-        self.rotation = np.array([[-1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, -1.0]])
+        # self.rotation = np.array([[-1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, -1.0]])
         self._enabled = False
         self._buttons = [0.0, 0.0]
 
@@ -165,15 +184,20 @@ class Oculus(Device):
             self.dq = np.zeros(7)
 
     def _get_oculus_commands(self):
-
-        action_pos, action_ori, gripper_action = self.oculus_policy.step(np.array([0,0,0]), np.eye(3))
+        self.init_pos = np.array(self.env.sim.data.get_site_xpos('gripper0_grip_site'))
+        self.init_ori = np.array(self.env.sim.data.get_site_xmat('gripper0_grip_site'))
+        action_pos, action_ori, gripper_action = self.oculus_policy.step(self.init_pos, self.init_ori)
+        self._buttons = gripper_action
         self.x, self.y, self.z = action_pos
-        self.x *= self.pos_sensitivity
-        self.y *= self.pos_sensitivity
-        self.z *= self.pos_sensitivity
-        # rpy = mat2euler(action_ori)
-        # self.roll, self.pitch, self.yaw = rpy
-        self.rotation = action_ori
+        # self.x *= self.pos_sensitivity
+        # self.y *= self.pos_sensitivity
+        # self.z *= self.pos_sensitivity
+        rpy = mat2euler(action_ori)
+        self.roll, self.pitch, self.yaw = rpy
+        # self.rotation = action_ori
+        # self.roll = 0
+        # self.pitch = 0
+        # self.yaw = 0
 
         self._control = [
             self.x,
@@ -183,8 +207,6 @@ class Oculus(Device):
             self.pitch,
             self.yaw,
         ]
-
-        print(self._control)
 
     def on_press(self, window, key, scancode, action, mods):
         """
@@ -255,7 +277,8 @@ class Oculus(Device):
         """
         self._get_oculus_commands()
         dpos = self.control[:3] * 0.008 * self.pos_sensitivity
-        roll, pitch, yaw = self.control[3:] * 0.008 * self.rot_sensitivity
+        # roll, pitch, yaw = self.control[3:] * 0.008 * self.rot_sensitivity
+        roll, pitch, yaw = self.control[3:] 
 
         # convert RPY to an absolute orientation
         drot1 = rotation_matrix(angle=-pitch, direction=[1.0, 0, 0], point=None)[:3, :3]
@@ -263,13 +286,14 @@ class Oculus(Device):
         drot3 = rotation_matrix(angle=yaw, direction=[0, 0, 1.0], point=None)[:3, :3]
 
         self.rotation = self.rotation.dot(drot1.dot(drot2.dot(drot3)))
-
+        print(self._buttons)
         if self.use_robotiq:
             if self._buttons[0]:
                 self.dq[0] = min(1, self.dq[0] + 0.1)
             if self._buttons[1]:
                 self.dq[0] = max(-1, self.dq[0] - 0.1)
-                
+
+        else:                
             if self._buttons[0]:
                 if self.dq[0] <= 1.5:
                     self.dq[0] += self.alpha * self.pos_sensitivity
@@ -299,7 +323,6 @@ class Oculus(Device):
             if not self.symmetric:
                 self.dq = np.maximum(self.dq, np.zeros_like(self.dq))
             self.dq[4] = self.thumb_pos
-
         return dict(
             dpos=dpos,
             rotation=self.rotation,

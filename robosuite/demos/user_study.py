@@ -184,7 +184,7 @@ if __name__ == "__main__":
     parser.add_argument("--arm", type=str, default="right", help="Which arm to control (eg bimanual) 'right' or 'left'")
     parser.add_argument("--switch-on-grasp", action="store_true", help="Switch gripper control on gripper action")
     parser.add_argument("--toggle-  camera-on-grasp", action="store_true", help="Switch camera angle on gripper action")
-    parser.add_argument("--device", type=str, default="spacemouse")
+    parser.add_argument("--device", type=str, default="oculus")
     parser.add_argument("--pos-sensitivity", type=float, default=1.0, help="How much to scale position user inputs")
     parser.add_argument("--rot-sensitivity", type=float, default=1.0, help="How much to scale rotation user inputs")
     parser.add_argument("--directory", type=str, default="/home/rthom/Documents/Research/TRI/bdml_mujoco/robosuite/data/")
@@ -193,7 +193,7 @@ if __name__ == "__main__":
     ''' 
     ADD THE USER NAME HERE!!!!
     '''
-    subject_name = "tony_chen"
+    subject_name = "test_oculus"
 
     # Randomly order the tasks
     tasks = ["ConstrainedReorient", "Bookshelf", "DrawerPick"]
@@ -276,8 +276,15 @@ if __name__ == "__main__":
                 device = SpaceMouse(pos_sensitivity=args.pos_sensitivity, rot_sensitivity=args.rot_sensitivity, use_robotiq=use_robotiq, drawer=drawer)
                 env.viewer.add_keypress_callback("any", device.on_press)
                 env.viewer.add_keyrepeat_callback("any", device.on_press)
-            else:
-                raise Exception("Invalid device choice: choose either 'keyboard' or 'spacemouse'.")
+            elif args.device == "oculus":
+                from robosuite.devices import Oculus
+                use_robotiq = False if (robot == "PandaSSLIM" or robot == "PandaSSLIMOG") else True
+                drawer = False if ("DrawerPick" not in task) else True
+                device = Oculus(env, pos_sensitivity=args.pos_sensitivity, rot_sensitivity=args.rot_sensitivity, use_robotiq=use_robotiq, drawer=drawer)
+                env.viewer.add_keypress_callback("any", device.on_press)
+                env.viewer.add_keyrepeat_callback("any", device.on_press)
+            # else:
+            #     raise Exception("Invalid device choice: choose either 'keyboard' or 'spacemouse'.")
 
 
             # Set up a CSV file for the user to save the databbbb

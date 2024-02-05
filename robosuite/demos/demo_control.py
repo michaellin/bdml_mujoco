@@ -138,7 +138,7 @@ def save_data(file_path, task, trial_number, success, success_time, disturbance=
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--environment", type=str, default="ConstrainedReorient", help="Name of the environment to run")
+    parser.add_argument("--environment", type=str, default="Bookshelf", help="Name of the environment to run")
     parser.add_argument("--robots", nargs="+", type=str, default="PandaSSLIM", help="Which robot(s) to use in the env")
     parser.add_argument(
         "--config", type=str, default="single-arm-opposed", help="Specified environment configuration if necessary"
@@ -221,7 +221,7 @@ if __name__ == "__main__":
         from robosuite.devices import Oculus
         use_robotiq = False if ("PandaSSLIM" in args.robots or "PandaSSLIMOG" in args.robots) else True
         drawer = False if ("Drawer" not in args.environment) else True
-        device = Oculus(pos_sensitivity=args.pos_sensitivity, rot_sensitivity=args.rot_sensitivity, use_robotiq=use_robotiq, drawer=drawer)
+        device = Oculus(env, pos_sensitivity=args.pos_sensitivity, rot_sensitivity=args.rot_sensitivity, use_robotiq=use_robotiq, drawer=drawer)
         env.viewer.add_keypress_callback("any", device.on_press)
         env.viewer.add_keyrepeat_callback("any", device.on_press)
     else:
@@ -314,6 +314,10 @@ if __name__ == "__main__":
                     env.viewer.viewer.add_marker(type=const.GEOM_SPHERE, pos=contact_pos, size=np.array([0.02, 0.02, 0.02]), label='contact', rgba=[0.592, 0.863, 1, .4])
 
 
+            # # print the end effector pose
+            # print(env.sim.data.get_site_xpos('gripper0_grip_site'))
+            # print(env.sim.data.get_site_xmat('gripper0_grip_site'))
+        
             # if "ConstrainedReorient" in args.environment:
             #     success, success_time, trial_number = env._check_success()
             #     if success == 2: # True success

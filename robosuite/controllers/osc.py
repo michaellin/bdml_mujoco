@@ -3,6 +3,7 @@ import math
 import numpy as np
 
 import robosuite.utils.transform_utils as T
+from scipy.spatial.transform import Rotation
 from robosuite.controllers.base_controller import Controller
 from robosuite.utils.control_utils import *
 
@@ -246,8 +247,11 @@ class OperationalSpaceController(Controller):
                 set_pos = delta[:3]
             # Set default control for ori if we're only using position control
             if set_ori is None:
+                rpy = [delta[4], delta[3], delta[5]]
+                r = Rotation.from_euler('xyz', rpy, degrees=True)
                 set_ori = (
-                    T.quat2mat(T.axisangle2quat(delta[3:6]))
+                    # T.quat2mat(T.axisangle2quat(delta[3:6]))
+                    r.as_matrix()
                     if self.use_ori
                     else np.array([[0.0, 1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, -1.0]])
                 )
